@@ -62,12 +62,18 @@ fi
 
 if [ "$DO_VERSION" = true ]; then
   echo "Starting versioning process..."
-  PUBSPEC_LINE=$(grep '^version:' pubspec.yaml)
-  VERSION_FULL=$(echo "$PUBSPEC_LINE" | cut -d ' ' -f 2)
-  VERSION=$(echo "$VERSION_FULL" | cut -d '+' -f 1)
+  LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null)
+  if [ -z "$LATEST_TAG" ]; then
+    echo "Error: No git tags found in this repository."
+    exit 1
+  fi
+  VERSION=$(echo "$LATEST_TAG" | sed 's/^v//')
+  sed -i "s/^version:.*/version: $VERSION/" pubspec.yaml
+  echo "Successfully updated 'pubspec.yaml' version to $VERSION"
+
   cd "$PWD/metrics" || exit 1
   sed -i "s/^version = \".*\"/version = \"$VERSION\"/" Cargo.toml
-  echo "Successfully updated 'Cargo.toml' version to 'pubspec.yaml' $VERSION"
+  echo "Successfully updated 'Cargo.toml' version to $VERSION"
 fi
 
 

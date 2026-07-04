@@ -46,3 +46,7 @@ app.*.map.json
 trash
 target
 IMPL.md
+apkdump
+**/android/key.properties
+*.jks*
+release-keystore*

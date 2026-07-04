@@ -118,11 +118,19 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Decode keystore and create key.properties
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/release-keystore.jks
+          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > android/key.properties
+          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
+          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
+          echo "storeFile=./app/release-keystore.jks" >> android/key.properties
+
       - name: Build Flutter APK
         run: |
           flutter pub get
           # too much for key signing
-          flutter build apk --release --debug-signing
+          flutter build apk --release
 
       - name: Generate Release Description (Changelog)
         id: changelog
