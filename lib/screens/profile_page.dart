@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:syne/service/ssh_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -129,7 +130,7 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
 
-          sectionTitle("SYSTEM"),
+          sectionTitle("System"),
           infoTile("OS:", identity['os_name'] ?? "--"),
           infoTile("Kernel:", identity['kernel_name'] ?? "--"),
           infoTile("Architecture:", identity['architecture'] ?? "--"),
@@ -139,11 +140,43 @@ class _ProfilePageState extends State<ProfilePage> {
             (identity['load_average'] as List?)?.join(", ") ?? "--",
           ),
 
-          sectionTitle("HARDWARE"),
+          sectionTitle("Hardware"),
           infoTile("Processor:", hardware['cpu_model'] ?? "--"),
           if (hardware['gpu_model'] != null && hardware['gpu_model'].toString().isNotEmpty)
-            infoTile("Graphics:", hardware['gpu_model'].toString()),
+						infoTile("Graphics:", hardware['gpu_model'].toString()),
           infoTile("Sensors count:", "${(hardware['sensors'] as List?)?.length ?? 0}"),
+
+          sectionTitle("App info"),
+          Material(
+            type: MaterialType.transparency,
+						child: ListTile(
+								contentPadding: EdgeInsets.zero,
+								title: const Text(
+									"GitHub",
+									style: TextStyle(color: Colors.grey, fontSize: 14),
+									),
+								subtitle: const Text(
+									"View project source code",
+									style: TextStyle(color: Colors.white, fontSize: 16),
+									),
+								trailing: IconButton(
+									icon: const Icon(Icons.open_in_new, color: Color(0xFFA2D9A1)),
+									onPressed: () async {
+									final Uri url = Uri.parse('https://github.com/tribhuwan-kumar/syne');
+										if (await canLaunchUrl(url)) {
+											await launchUrl(url, mode: LaunchMode.externalApplication);
+										} else {
+										// Fallback handle if it fails to open
+										if (mounted) {
+											ScaffoldMessenger.of(context).showSnackBar(
+											const SnackBar(content: Text('Could not open GitHub link')),
+										);
+										}
+									}
+								},
+							),
+						),
+					),
 
           const SizedBox(height: 40),
           Center(
