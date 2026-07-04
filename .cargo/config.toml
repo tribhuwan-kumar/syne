@@ -1,0 +1,10 @@
+[env]
+CC_aarch64_unknown_linux_musl = "aarch64-linux-musl-gcc"
+
+[target.aarch64-unknown-linux-musl]
+linker = "aarch64-linux-musl-gcc"
+rustflags = [
+	"-C", "link-arg=-s",
+	"-C", "target-feature=+crt-static",
+]
+

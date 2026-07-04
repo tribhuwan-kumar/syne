@@ -1,0 +1,10 @@
+[workspace]
+resolver = "2"
+members = ["metrics"]
+
+[profile.release]
+lto = true
+strip = true
+opt-level = 3
+panic = "abort"
+codegen-units = 1
