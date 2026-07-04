@@ -7,5 +7,3 @@ Need cross platform api for,
     mute,
     display off,
     camera & mic off,
-
-    system updating - via password or elevated (windows) 
