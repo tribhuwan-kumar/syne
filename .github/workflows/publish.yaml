@@ -84,9 +84,7 @@ jobs:
           path: staging/${{ matrix.output_name }}
           retention-days: 1
 
-  # ==========================================
-  # Job 2: Build Flutter and Publish Release
-  # ==========================================
+  # Build Flutter and Publish Release
   release:
     name: Build Flutter APK & Deploy
     needs: build-rust
