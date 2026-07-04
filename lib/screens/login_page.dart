@@ -64,7 +64,7 @@ class _LoginPageState extends State<LoginPage> {
     // Show the Loading Dialog (We don't await this, it runs in the foreground)
     AppDialog.show(
       context: context,
-      title: "Connecting",
+      title: "Connecting...",
       type: DialogType.loading,
       dynamicMessage: statusNotifier,
       progressNotifier: progressNotifier,
@@ -237,3 +237,4 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 }
+

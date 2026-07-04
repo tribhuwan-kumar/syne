@@ -314,12 +314,12 @@ class SSHService {
         // If `uname -s` fails or is unrecognized, it's a Windows machine
         detectedOs = "windows";
         binaryExtension = ".exe";
-        // Windows CMD uses %PROCESSOR_ARCHITECTURE%, 
+        // Windows CMD uses %PROCESSOR_ARCHITECTURE%,
         // PowerShell uses $env:PROCESSOR_ARCHITECTURE
         // Sending a generic check that usually captures AMD64 or ARM64
         final archSession = await client!.execute("echo %PROCESSOR_ARCHITECTURE%");
         final archOut = await archSession.stdout.cast<List<int>>().transform(utf8.decoder).join();
-        
+
         archString = archOut.toLowerCase().contains("arm") ? "aarch64" : "x86_64";
       }
 
@@ -341,7 +341,7 @@ class SSHService {
         final remoteStat = await sftp!.stat(remotePath);
         if (remoteStat.size == localSize) {
           // Binary exists and sizes match, skip upload
-          needsUpload = false; 
+          needsUpload = false;
         }
       } catch (_) {
         // Binary doesn't exist on the remote server
@@ -389,7 +389,7 @@ class SSHService {
         while (true) {
           if (expectedPayloadLength == null) {
             int magicIndex = -1;
-            
+
             // At least 8 bytes (4 marker + 4 header) to proceed safely
             for (int i = 0; i <= buffer.length - 8; i++) {
               if (buffer[i] == markerBytes[0] &&
@@ -414,11 +414,11 @@ class SSHService {
           if (expectedPayloadLength != null && buffer.length >= expectedPayloadLength!) {
             final payload = buffer.sublist(0, expectedPayloadLength!);
             buffer.removeRange(0, expectedPayloadLength!);
-            
+
             try {
               final Uint8List payloadBytes = Uint8List.fromList(payload);
               final dynamic decoded = deserialize(payloadBytes);
-              
+
               if (decoded is Map) {
                 final Map<String, dynamic> metricsMap = Map<String, dynamic>.from(
                   decoded.map((k, v) => MapEntry(k.toString(), v))
@@ -443,9 +443,5 @@ class SSHService {
       throw Exception("Metrics Agent Deployment Failed: $e");
     }
   }
-
-
 }
-
-
 

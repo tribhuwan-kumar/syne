@@ -45,3 +45,4 @@ class SyneState extends State<Syne> {
     );
   }
 }
+

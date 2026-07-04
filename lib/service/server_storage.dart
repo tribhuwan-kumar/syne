@@ -55,3 +55,4 @@ class ServerStorage {
     await _secure.delete(key: "pass_$id");
   }
 }
+

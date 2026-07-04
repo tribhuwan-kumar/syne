@@ -65,7 +65,7 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
           _sink?.add(data);
 
           setState(() {
-            progress += 0.02; 
+            progress += 0.02;
             if (progress > 1.0) progress = 1.0;
           });
 
@@ -158,3 +158,4 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
     );
   }
 }
+

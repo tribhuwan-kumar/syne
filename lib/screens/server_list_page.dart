@@ -187,7 +187,7 @@ class _ServerListPageState extends State<ServerListPage> {
                 style: TextStyle(
                   color: Colors.white70,
                   fontSize: 14,
-                  fontStyle: FontStyle.italic,
+                  fontStyle: FontStyle.normal,
                 ),
               ),
 
@@ -224,7 +224,7 @@ class _ServerListPageState extends State<ServerListPage> {
                             AppDialog.show(
                               barrierDismissible: false,
                               context: context,
-                              title: "Connecting to ${servers[index].host} as ${servers[index].username}",
+                              title: "Connecting to ${servers[index].host} as ${servers[index].username}...",
                               message: "Wait a sec, establishing connection...",
                             );
 
@@ -276,3 +276,4 @@ class _ServerListPageState extends State<ServerListPage> {
     );
   }
 }
+

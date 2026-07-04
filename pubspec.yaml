@@ -50,6 +50,7 @@ dependencies:
   video_player: ^2.11.1
   chewie: ^1.13.1
   msgpack_dart: ^1.0.1
+  package_info_plus: ^10.2.0
 
 dev_dependencies:
   flutter_test:

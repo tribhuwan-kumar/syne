@@ -62,8 +62,6 @@ class _ControlPanelState extends State<ControlPanel> {
 
     int loginctlOutput = int.tryParse(loginctlRaw.trim()) ?? 0;
 
-    // print("Loginctl Output: $loginctlOutput");
-
     setState(() {
       volume = vol;
       brightness = bright;
@@ -125,13 +123,12 @@ class _ControlPanelState extends State<ControlPanel> {
     return Column(
       children: [
         FloatingActionButton(
-          onPressed: onTap,
-          backgroundColor:
-              backgroundColor ?? const Color.fromARGB(255, 255, 255, 255),
-          child: Icon(icon, color: Colors.black),
+          onPressed: null, // Disabled click event logic
+          backgroundColor: Colors.grey.shade800, // Grayed out container style
+          child: Icon(icon, color: Colors.grey.shade500),
         ),
         const SizedBox(height: 8),
-        Text(label, style: const TextStyle(color: Colors.white)),
+        Text(label, style: TextStyle(color: Colors.grey.shade500)),
       ],
     );
   }
@@ -140,27 +137,19 @@ class _ControlPanelState extends State<ControlPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           "Brightness",
-          style: TextStyle(color: Colors.white, fontSize: 16),
+          style: TextStyle(color: Colors.grey.shade500, fontSize: 16),
         ),
-
         Slider(
           value: brightness,
           min: 0,
           max: 100,
-          year2023: false,
-          activeColor: const Color(0xFFA2D9A1),
-          inactiveColor: Colors.grey.shade800,
+          activeColor: Colors.grey.shade800, // Grayed out track interface
+          inactiveColor: Colors.grey.shade900,
           label: brightness.round().toString(),
-
-          onChanged: (v) {
-            setState(() => brightness = v);
-          },
-
-          onChangeEnd: (v) async {
-            await run("brightnessctl -c backlight set ${v.round()}%");
-          },
+          onChanged: null, // Completely disables interactions
+          onChangeEnd: null,
         ),
       ],
     );
@@ -169,52 +158,40 @@ class _ControlPanelState extends State<ControlPanel> {
   Widget volumeCircular() {
     return Column(
       children: [
-        const Text(
+        Text(
           "Volume",
-          style: TextStyle(color: Colors.white, fontSize: 18),
+          style: TextStyle(color: Colors.grey.shade500, fontSize: 18),
         ),
-
         const SizedBox(height: 10),
-
         SleekCircularSlider(
           min: 0,
           max: 100,
           initialValue: volume,
-
           appearance: CircularSliderAppearance(
             size: 250,
-
             customWidths: CustomSliderWidths(
               progressBarWidth: 15,
-              handlerSize: 5,
+              handlerSize: 0, // Hides interaction handle thumb structure
               trackWidth: 10,
             ),
-
             customColors: CustomSliderColors(
-              progressBarColor: const Color(0xFFA2D9A1),
-              trackColor: Colors.grey.shade800,
-              dotColor: Colors.black,
+              progressBarColor: Colors.grey.shade800, // Muted colors
+              trackColor: Colors.grey.shade900,
+              dotColor: Colors.transparent,
               hideShadow: true,
             ),
-
             infoProperties: InfoProperties(
               modifier: (double value) {
                 return "${value.round()}%";
               },
-              mainLabelStyle: const TextStyle(
-                color: Colors.white,
+              mainLabelStyle: TextStyle(
+                color: Colors.grey.shade600,
                 fontSize: 28,
               ),
             ),
           ),
-
-          onChange: (v) {
-            setState(() => volume = v);
-          },
-
-          onChangeEnd: (v) async {
-            await run("pactl set-sink-volume @DEFAULT_SINK@ ${v.round()}%");
-          },
+          onChange: null, // Lock inputs from triggering changes
+          onChangeEnd: null,
         ),
       ],
     );
@@ -224,81 +201,95 @@ class _ControlPanelState extends State<ControlPanel> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-
       appBar: AppBar(
         title: const Text("Control Panel"),
         backgroundColor: Colors.black,
+				centerTitle: true,
       ),
+      body: Stack(
+        children: [
+          /// BACKGROUND (MUTED & IGNORES GESTURES)
+          IgnorePointer(
+            ignoring: true,
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    /// VOLUME CONTROL
+                    volumeCircular(),
+                    const SizedBox(height: 20),
 
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
+                    /// ACTION BUTTONS
+                    Wrap(
+                      spacing: 30,
+                      runSpacing: 30,
+                      children: [
+                        actionButton(
+                          icon: Icons.lock,
+                          label: "Lock",
+                          onTap: () {},
+                        ),
+                        actionButton(
+                          icon: Icons.power_settings_new,
+                          label: "Shutdown",
+                          onTap: () {},
+                        ),
+                        actionButton(
+                          icon: Icons.restart_alt,
+                          label: "Restart",
+                          onTap: () {},
+                        ),
+                        actionButton(
+                          icon: Icons.bedtime,
+                          label: "Suspend",
+                          onTap: () {},
+                        ),
+                        actionButton(
+                          icon: Icons.volume_off,
+                          label: "Mute",
+                          onTap: () {},
+                        ),
+                        actionButton(
+                          icon: Icons.monitor,
+                          label: "Display Off",
+                          onTap: () {},
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 40),
 
-          child: Column(
-            children: [
-              /// VOLUME CONTROL
-              volumeCircular(),
-
-              // const SizedBox(height: 20),
-
-              /// ACTION BUTTONS
-              Wrap(
-                spacing: 30,
-                runSpacing: 30,
-                // alignment: WrapAlignment.center,
-
-                children: [
-                  actionButton(
-                    icon: Icons.lock,
-                    label: "Lock",
-                    onTap: () => run("loginctl lock-session $loginSession"),
-                  ),
-
-                  actionButton(
-                    icon: Icons.power_settings_new,
-                    label: "Shutdown",
-                    onTap: () => sudoCommand("shutdown now"),
-                  ),
-
-                  actionButton(
-                    icon: Icons.restart_alt,
-                    label: "Restart",
-                    onTap: () => sudoCommand("reboot"),
-                  ),
-
-                  actionButton(
-                    icon: Icons.bedtime,
-                    label: "Suspend",
-                    onTap: () => sudoCommand("systemctl suspend"),
-                  ),
-
-                  actionButton(
-                    icon: Icons.volume_off,
-                    label: "Mute",
-                    backgroundColor: isMuted
-                        ? const Color(0xFFA2D9A1)
-                        : Colors.white,
-                    onTap: () async {
-                      await run("pactl set-sink-mute @DEFAULT_SINK@ toggle");
-                      fetchInitialValues();
-                    },
-                  ),
-
-                  actionButton(
-                    icon: Icons.monitor,
-                    label: "Display Off",
-                    onTap: () => run("xset dpms force off"),
-                  ),
-                ],
+                    /// BRIGHTNESS CONTROL
+                    brightnessSlider(),
+                  ],
+                ),
               ),
-
-              const SizedBox(height: 40),
-
-              /// BRIGHTNESS CONTROL
-              brightnessSlider(),
-            ],
+            ),
           ),
-        ),
+
+          /// FOREGROUND OVERLAY "COMING SOON" TEXT
+          Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.85),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade800, width: 1),
+              ),
+              child: const Text(
+                "Coming soon!!",
+                style: TextStyle(
+                  color: Color(
+                    0xFFA2D9A1,
+                  ), // Matches original design accent color
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -185,14 +185,23 @@ class _NetworkPageState extends State<NetworkPage> {
                       ],
                     ),
                     iface['is_default']
-                      ? const Text(
-                        "DEFAULT",
-                        style: TextStyle(
-                          color: Colors.amber,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      )
+                      ? Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: Colors.green.withValues(alpha: 0.5)),
+                          ),
+                        child: const Text(
+                          "DEFAULT",
+                          style: TextStyle(
+                            color: Colors.greenAccent, 
+                            fontSize: 8, 
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                            ),
+                          ),
+                        )
                       : const SizedBox(),
                   ],
                 ),
@@ -351,3 +360,4 @@ class _NetworkPageState extends State<NetworkPage> {
     ),
   );
 }
+

@@ -2,21 +2,13 @@
 
 <img width="100" height="100" alt="android_icon" src="https://github.com/user-attachments/assets/042fb5b1-8bcd-4f96-b9dd-16fe241930ba" styele="border-radius: 50%" />
 
-<h1>syne</h1>
-
-<img src="https://img.shields.io/github/stars/aniruddha76/syne?style=for-the-badge" />
-<img src="https://img.shields.io/github/forks/aniruddha76/syne?style=for-the-badge" />
-<img src="https://img.shields.io/github/downloads/aniruddha76/syne/total?style=for-the-badge" />
-<img src="https://img.shields.io/github/last-commit/aniruddha76/syne?style=for-the-badge" />
-<img src="https://img.shields.io/github/license/aniruddha76/syne?style=for-the-badge" />
-<img src="https://img.shields.io/github/issues/aniruddha76/syne?style=for-the-badge" />
-<img src="https://img.shields.io/github/issues-pr/aniruddha76/syne?style=for-the-badge" />
+<h1>Syne</h1>
 
 <br />
 
-<h3><b>Monitor and control your Linux system remotely via phone</b></h3>
+<h3><b>Monitor and control your server remotely via phone</b></h3>
 
-A lightweight Flutter app that allows Linux administration with a clean and simple mobile interface.
+A lightweight app that allows server administration with a clean and simple mobile interface.
 
 <a href="#features">Features</a> •
 <a href="#installation">Installation</a> •
@@ -30,7 +22,7 @@ A lightweight Flutter app that allows Linux administration with a clean and simp
 
 ## Overview
 
-syne is a lightweight, modern Flutter application designed to simplify remote Linux system management over SSH. It provides an intuitive interface for monitoring system performance, managing files, and executing essential controls without relying on a terminal for routine tasks.
+Syne is a lightweight, modern application designed to simplify server management over SSH. It provides an intuitive interface for monitoring system performance, managing files, and executing essential controls without relying on a terminal for routine tasks.
 
 The app brings together key administrative functions into a unified dashboard, allowing users to view real-time system metrics such as CPU usage, memory consumption, disk utilization, and running processes. It also includes a built-in file explorer with support for uploading and downloading files, making remote file management seamless and efficient.
 
@@ -43,133 +35,92 @@ df -h
 
 multiple times a day.
 
-**syne** eliminates that repetition by bringing system monitoring and control directly to your phone.
-
----
-
-## Features
-
-### System Monitoring
-
-* CPU usage
-* Temperature
-* Memory usage
-* Load average
-* Disk usage
-
-### Disk Monitoring
-
-* Displays `df -h` output
-* Shows storage usage across mounted drives
-
-### Process Manager
-
-* View top processes by CPU usage
-* Kill processes directly
-
-### File Explorer
-
-* Browse remote directories
-* Download files
-
-### Control Panel
-
-* Volume control
-* Lock system
-* Shutdown
-* Restart
-* Suspend
-* Mute
-* Turn display off
-
-### Terminal
-
-* Full SSH terminal access
-* Powered by `dartssh2`
-
-### Services
-
-* Display all servieces  
-* Search services via name, string or status(Running or Dead)
-
-### Network Monitoring 
-
-* Network traffic chart
-* Connectins, latency and other information
-* Open ports information.
-
-### Profile
-
-* Output of `hostnamectl`
-
----
-
-## Tech Stack
-
-| Technology | Purpose              |
-| ---------- | -------------------- |
-| Flutter    | UI framework         |
-| Dart       | Programming language |
-| dartssh2   | SSH connection       |
-| Linux CLI  | System data          |
+**Syne** eliminates that repetition by bringing system monitoring and control directly to your phone.
 
 ---
 
 ## Installation
 
-You can simply download APK from <a href="https://github.com/aniruddha76/syne/releases/">Release</a> section and Install
+Install APK for android from <a href="https://github.com/tribhuwan-kumar/syne/releases/">release page</a>
 
-OR if you are nerd like me follow below steps. 
+---
 
-1. Clone the repository
+## Features
 
-```bash
-git clone https://github.com/aniruddha76/syne.git
-cd syne
-```
+#### Real-Time System Monitoring
 
-2. Install dependencies
+* Live Telemetry:
+Tracks CPU, GPU, RAM, and battery metrics.
+Delivers sub-second latency using a Rust backend.
+* Hardware & Thermals:
+Monitors live system temperatures and kernel info.
+Tracks architecture specs, load averages, and active sensors.
 
-```bash
-flutter pub get
-```
+#### Universal Package Management
 
-3. Connect your phone
+* Multi-OS Support:
+Handles system updates out of the box.
+Supports Arch, Ubuntu, Fedora, Alpine, openSUSE, macOS, and Windows.
+* One-Click Batch Upgrades:
+Check off exactly which packages you want to update.
+Handles all downloads and updates in one go.
+* Safe Sudo Handling:
+Prompts for passwords safely.
+Pipes input directly into the SSH session's stdin.
+Keeps sensitive passwords completely out of your bash history.
 
-```bash
-With Developer mode on
-with USB debugging on
-```
+#### Built-in Terminal Emulator
 
-3.Run the app
+* Full Shell Experience:
+Uses xterm.dart for terminal rendering.
+Handles complex ANSI escape sequences and PTY outputs smoothly.
+* Mobile-Friendly Keys:
+Adds a handy, persistent shortcut row.
+Quick access for CTRL, ALT, ESC, TAB, and arrow keys.
+Saves you from fighting your default phone keyboard.
+* TUI & Vim Ready:
+Bypasses aggressive mobile autocorrect entirely.
+Provides a 1:1 input pipeline for the terminal.
+Makes command-line tools and text editors feel responsive.
 
-```bash
-flutter run
-```
+#### Network & Traffic Tools
+
+* Live Bandwidth Graphs:
+Charts upload and download speeds on the fly.
+Provides quick visual context for network activity.
+* Interface Insights:
+Displays active IP bindings and default routes.
+Tracks link statuses, ping latency, and packet loss.
+* Quick Port Scanner:
+Scans your target system locally.
+Gives an immediate list of open ports and active listeners.
+
+#### Architecture & UX
+
+* Smart Reconnections:
+Uses background heartbeats to detect network drops.
+Cleans up orphaned backend processes automatically.
+* State Preservation:
+Built around an IndexedStack navigation structure.
+Keeps terminal sessions, search inputs, and scroll positions active.
+Prevents pages from resetting when switching tabs.
+* Multi-Host Support:
+Built to manage multiple remote servers from one app.
+Allows you to quickly jump between active connections.
+
 ---
 
 ## Requirements
 
-* Linux machine with **SSH enabled** if not please follow below commands
+* Any remote server with SSH enabled
 * SSH credentials
-* `loginctl` installed
 
-Enable SSH:
+Enable SSH on `systemd` machine:
 
 ```bash
-sudo systemctl enable ssh
-sudo systemctl start ssh
+systemctl enable --now sshd
+systemctl start sshd
 ```
-
----
-
-## Usage
-
-1. Open the app
-2. Enter server IP
-3. Enter SSH credentials (Username and Password)
-4. Tap **Connect**
-5. Start managing your system
 
 ---
 
@@ -205,121 +156,34 @@ sudo systemctl start ssh
 
 ---
 
-## Project Structure
+## Build:
+- Clone the repository
 
 ```bash
-lib/
-├── screens/
-│   ├── control_panel.dart
-│   ├── file_explorer.dart
-│   ├── home_page.dart
-│   ├── image_viewer.dart
-│   ├── login_page.dart
-│   ├── network_page.dart
-│   ├── profile_page.dart
-│   ├── server_list_page.dart
-│   ├── services_page.dart
-│   ├── system_monitor.dart
-│   └── terminal_screen.dart
-│
-├── service/
-│   ├── server_storage.dart
-│   └── ssh_service.dart
-│
-└── main.dart
+git clone https://github.com/aniruddha76/syne.git && cd syne
 ```
----
 
-## Contributing
+- Install dependencies
 
-Contributions are welcome.
+```bash
+flutter pub get
+```
 
-* Open issue
-* Fork the repo
-* Create a branch
-* Make changes
-* Open a Pull Request
+- Connect your phone
 
----
+```bash
+With Developer mode on
+with USB debugging on
+```
 
-## License
+- Run the app
 
-This project is under MIT License
+```bash
+flutter run
+```
 
----
 
-## Author
+#### Credits
 
-**Aniruddha**
-[https://github.com/aniruddha76](https://github.com/aniruddha76)
-
----
-
-## Support
-
-If you like this project, consider giving it a ⭐
-and open issues if you find bugs or have suggestions.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+I got the app idea from [aniruddha76](https://github.com/aniruddha76)
 

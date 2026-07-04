@@ -176,7 +176,7 @@ class _HomePageState extends State<HomePage> {
           // Filter out loopback ('lo') and only keep actively transmitting interfaces
           final filteredNets = allNetworks
             .map((e) => Map<String, dynamic>.from(e))
-            .where((net) => net['name'] != 'lo' && net['is_active'] == true)
+            .where((net) => net['name'] != 'lo' && net['is_default'] == true)
             .toList();
 
           // Fallback: If no interface is actively moving data right this second, 
@@ -250,23 +250,23 @@ class _HomePageState extends State<HomePage> {
       child: Container(
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: const Color(0xFFA2D9A1),
+          color: const Color(0xFF1C1C1E),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: Colors.black, size: 50),
+            Icon(icon, color: const Color(0xFFA2D9A1), size: 50),
             const Spacer(),
             Text(
               title,
               style: const TextStyle(
-                color: Colors.black,
+                color: Colors.white,
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
               ),
             ),
-            Text(subtitle, style: const TextStyle(color: Colors.black87)),
+            Text(subtitle, style: const TextStyle(color: Colors.white70)),
           ],
         ),
       ),
@@ -275,7 +275,7 @@ class _HomePageState extends State<HomePage> {
 
   Widget systemAndUpdatesCards(String name, VoidCallback onTap) {
     return Container(
-      height: 75,
+      height: 80,
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -298,9 +298,9 @@ class _HomePageState extends State<HomePage> {
           ElevatedButton(
             onPressed: onTap,
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
+              backgroundColor: Color(0xFFA2D9A1),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(9),
+                borderRadius: BorderRadius.circular(15),
               ),
             ),
             child: const Icon(Icons.arrow_forward_ios_rounded, color: Colors.black),
@@ -515,7 +515,7 @@ class _HomePageState extends State<HomePage> {
                             ),
                           ),
                           // Inject the ACTIVE tag if true
-                          if (iface['is_active'] == true) ...[
+                          if (iface['is_default'] == true) ...[
                             const SizedBox(width: 8),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
@@ -525,7 +525,7 @@ class _HomePageState extends State<HomePage> {
                                 border: Border.all(color: Colors.green.withValues(alpha: 0.5)),
                               ),
                               child: const Text(
-                                "ACTIVE",
+                                "DEFAULT",
                                 style: TextStyle(
                                   color: Colors.greenAccent, 
                                   fontSize: 8, 
@@ -815,8 +815,8 @@ class _HomePageState extends State<HomePage> {
           Icon(
             icon,
             color: selected
-                ? const Color.fromARGB(255, 255, 255, 255)
-                : Colors.grey,
+              ? const Color.fromARGB(255, 255, 255, 255)
+              : Colors.grey,
             size: 28,
           ),
           const SizedBox(height: 4),

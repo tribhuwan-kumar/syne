@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:syne/service/ssh_service.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class ProfilePage extends StatefulWidget {
   final SSHService ssh;
@@ -11,6 +12,7 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
+	String _appVersion = "Loading...";
   Map<String, dynamic> identity = {};
   Map<String, dynamic> hardware = {};
   StreamSubscription<Map<String, dynamic>>? _metricsSubscription;
@@ -19,12 +21,20 @@ class _ProfilePageState extends State<ProfilePage> {
   void initState() {
     super.initState();
     _metricsSubscription = widget.ssh.metricsStream.listen(_onMetricsUpdate);
+		_loadAppVersion();
   }
 
   @override
   void dispose() {
     _metricsSubscription?.cancel();
     super.dispose();
+  }
+
+  Future<void> _loadAppVersion() async {
+    final PackageInfo packageInfo = await PackageInfo.fromPlatform();
+    setState(() {
+      _appVersion = packageInfo.version;
+    });
   }
 
   void _onMetricsUpdate(Map<String, dynamic> data) {
@@ -131,14 +141,14 @@ class _ProfilePageState extends State<ProfilePage> {
 
           sectionTitle("HARDWARE"),
           infoTile("Processor:", hardware['cpu_model'] ?? "--"),
-          if (hardware['gpu_model'] != null && hardware['gpu_model'].toString().isNotEmpty) 
+          if (hardware['gpu_model'] != null && hardware['gpu_model'].toString().isNotEmpty)
             infoTile("Graphics:", hardware['gpu_model'].toString()),
           infoTile("Sensors count:", "${(hardware['sensors'] as List?)?.length ?? 0}"),
 
           const SizedBox(height: 40),
           Center(
             child: Text(
-              "Syne v1.3.0",
+              "Syne v$_appVersion",
               style: const TextStyle(
                 color: Colors.grey,
                 fontSize: 12,
@@ -151,3 +161,4 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 }
+
