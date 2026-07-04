@@ -1,5 +1,8 @@
 [env]
-CC_aarch64_unknown_linux_musl = "aarch64-linux-musl-gcc"
+# For ubuntu
+CC_aarch64_unknown_linux_musl = "musl-gcc"
+# For arch
+# CC_aarch64_unknown_linux_musl = "aarch64-linux-musl-gcc"
 
 [target.aarch64-unknown-linux-musl]
 linker = "aarch64-linux-musl-gcc"
