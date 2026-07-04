@@ -140,7 +140,7 @@ systemctl start sshd
 - Clone the repository
 
 ```bash
-git clone https://github.com/aniruddha76/syne.git && cd syne
+git clone https://github.com/tribhuwan-kumar/syne.git && cd syne
 ```
 
 - Install dependencies
