@@ -62,7 +62,7 @@ jobs:
 
       - name: Install Cross
         if: matrix.use_cross == true
-        run: cargo install cross --git https://github.com
+        run: cargo install cross
 
       - name: Run Build (Cargo)
         if: matrix.use_cross == false
@@ -78,7 +78,7 @@ jobs:
           cp target/${{ matrix.target }}/release/${{ matrix.binary_name }} staging/${{ matrix.output_name }}
 
       - name: Upload Binary Artifact
-        uses: actions/artifacts/upload-artifact@v4
+        uses: actions/upload-artifact@v4 
         with:
           name: ${{ matrix.output_name }}
           path: staging/${{ matrix.output_name }}
@@ -96,7 +96,7 @@ jobs:
           fetch-depth: 0 # Fetches full history to parse commit messages correctly
 
       - name: Download all Rust artifacts
-        uses: actions/artifacts/download-artifact@v4
+        uses: actions/download-artifact@v4
         with:
           path: assets/bin
           merge-multiple: true
