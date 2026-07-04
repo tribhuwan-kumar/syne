@@ -86,6 +86,7 @@ flutter:
     - assets/avatar.png
     - assets/bin/metrics-linux-x86_64
     - assets/bin/metrics-linux-aarch64
+    - assets/bin/metrics-macos-aarch64
     - assets/bin/metrics-windows-x86_64.exe
     - assets/fonts/FiraCodeNerdFontMono-Regular.ttf
 

@@ -121,19 +121,8 @@ jobs:
       - name: Build Flutter APK
         run: |
           flutter pub get
-          flutter build apk --release
-
-      - name: Prepare APK with version name
-        run: |
-          VERSION_TAG="${{ github.ref_name }}"
-          # Define the new file name format
-          NEW_APK_NAME="syne-${VERSION_TAG}.apk"
-          # Rename and move the file into a dedicated release staging area
-          mkdir -p release_artifacts
-          cp build/app/outputs/flutter-apk/app-release.apk release_artifacts/${NEW_APK_NAME}
-          # Save the name to an environment variable for the release step
-          echo "FINAL_APK_PATH=release_artifacts/${NEW_APK_NAME}" >> $GITHUB_ENV
-          echo "Successfully staged artifact as: ${NEW_APK_NAME}"
+          # too much for key signing
+          flutter build apk --release --debug-signing
 
       - name: Generate Release Description (Changelog)
         id: changelog
@@ -158,10 +147,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: Release ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
           body: ${{ steps.changelog.outputs.BODY }}
           draft: false
           prerelease: false
           files: |
-            ${{ env.FINAL_APK_PATH }}
+            build/app/outputs/flutter-apk/app-release.apk:syne-${{ github.ref_name }}.apk
 
