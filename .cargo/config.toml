@@ -1,6 +1,6 @@
 [env]
 # For ubuntu
-CC_aarch64_unknown_linux_musl = "musl-gcc"
+# CC_aarch64_unknown_linux_musl = "musl-gcc"
 # For arch
 # CC_aarch64_unknown_linux_musl = "aarch64-linux-musl-gcc"
 
