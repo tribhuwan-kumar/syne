@@ -62,7 +62,7 @@ class _HomePageState extends State<HomePage> {
 
   void _onTabTapped(int index) {
     if (selectedIndex == index) return;
-    
+
     setState(() {
       selectedIndex = index;
       _navigationStack.remove(index);
@@ -85,7 +85,7 @@ class _HomePageState extends State<HomePage> {
 
   void _showConnectionLostDialog() {
     if (!mounted) return;
-    
+
     showDialog(
       context: context,
       barrierDismissible: false, // Forces the user to click the button
@@ -108,8 +108,8 @@ class _HomePageState extends State<HomePage> {
             TextButton(
               onPressed: () {
                 // Ensure backend resources are cleared
-                widget.ssh.disconnect(); 
-                
+                widget.ssh.disconnect();
+
                 // Clear the entire navigation stack and return to the Server list
                 Navigator.pushAndRemoveUntil(
                   context,
@@ -133,7 +133,7 @@ class _HomePageState extends State<HomePage> {
   Future<void> setupMetricsStream() async {
     _metricsSubscription = widget.ssh.metricsStream.listen((data) {
       if (!mounted) return;
-      
+
       setState(() {
         if (data['identity'] != null) {
           hostname = data['identity']['hostname'] ?? hostname;
@@ -150,7 +150,7 @@ class _HomePageState extends State<HomePage> {
 
         if (data['hardware'] != null) {
           cpuUsage = data['hardware']['global_cpu_usage'] ?? cpuUsage;
-          
+
           String rawGpuUsage = data['hardware']['global_gpu_usage'] ?? "";
           gpuUsage = (rawGpuUsage != "N/A" && rawGpuUsage.isNotEmpty) ? rawGpuUsage : "";
 
@@ -179,10 +179,10 @@ class _HomePageState extends State<HomePage> {
             .where((net) => net['name'] != 'lo' && net['is_default'] == true)
             .toList();
 
-          // Fallback: If no interface is actively moving data right this second, 
+          // Fallback: If no interface is actively moving data right this second,
           // just show the primary physical interfaces (excluding 'lo')
-          final referenceList = filteredNets.isNotEmpty 
-            ? filteredNets 
+          final referenceList = filteredNets.isNotEmpty
+            ? filteredNets
             : allNetworks
             .map((e) => Map<String, dynamic>.from(e))
             .where((net) => net['name'] != 'lo')
@@ -199,17 +199,18 @@ class _HomePageState extends State<HomePage> {
     int days = seconds ~/ (24 * 3600);
     int hours = (seconds % (24 * 3600)) ~/ 3600;
     int minutes = (seconds % 3600) ~/ 60;
-    
+
     if (days > 0) return "${days}d ${hours}h";
     if (hours > 0) return "${hours}h ${minutes}m";
     return "${minutes}m";
   }
 
   Widget batteryChip() {
-    bool hasBattery = batteryPercentage != "N/A";
-    bool isCharging = batteryState.toLowerCase().contains("charging");
+    if (batteryPercentage.toLowerCase().contains('nan')) {
+      return const SizedBox.shrink();
+    }
 
-    if (!hasBattery) return const SizedBox.shrink();
+    bool isCharging = batteryState.toLowerCase().contains("charging");
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -486,7 +487,7 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
           const SizedBox(height: 14),
-          
+
           ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -527,8 +528,8 @@ class _HomePageState extends State<HomePage> {
                               child: const Text(
                                 "DEFAULT",
                                 style: TextStyle(
-                                  color: Colors.greenAccent, 
-                                  fontSize: 8, 
+                                  color: Colors.greenAccent,
+                                  fontSize: 8,
                                   fontWeight: FontWeight.bold,
                                   letterSpacing: 0.5,
                                 ),
@@ -537,7 +538,7 @@ class _HomePageState extends State<HomePage> {
                           ],
                         ],
                       ),
-                      
+
                       Text(
                         (iface['ip_addresses'] as List).isNotEmpty
                             ? iface['ip_addresses'][0]
@@ -546,9 +547,9 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ],
                   ),
-                  
+
                   const SizedBox(height: 10),
-                  
+
                   // Bottom Row: Real-time download/upload speeds spanning full width
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -569,7 +570,7 @@ class _HomePageState extends State<HomePage> {
                           ),
                         ],
                       ),
-                      
+
                       // Upload Speed Component
                       Row(
                         children: [

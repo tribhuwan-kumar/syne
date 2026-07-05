@@ -81,7 +81,7 @@ class _NetworkPageState extends State<NetworkPage> {
       if (spots.isEmpty) return [const FlSpot(0, 0)];
       return spots;
     }
-    
+
     return glassCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -123,7 +123,7 @@ class _NetworkPageState extends State<NetworkPage> {
                     ),
                   ),
                   LineChartBarData(
-                    spots: getSafeSpots(uploadSpots), // Fixed: Now uses uploadSpots
+                    spots: getSafeSpots(uploadSpots),
                     color: Colors.blueAccent,
                     isCurved: true,
                     dotData: FlDotData(show: false),
@@ -143,93 +143,109 @@ class _NetworkPageState extends State<NetworkPage> {
   }
 
   Widget _buildInterfaceList() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          "Interfaces",
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 10),
-        ...allInterfaces.map(
-          (iface) => Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1C1C1E),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          iface['is_active']
-                            ? Icons.settings_ethernet
-                            : Icons.signal_wifi_off,
-                          color: iface['is_active']
-                            ? Colors.green
-                            : Colors.grey,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          iface['name'],
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
+    return glassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "Interfaces",
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 10),
+
+          // Restricts height to a maximum of 400 pixels
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 350),
+            child: ListView.builder(
+              shrinkWrap: true,
+              physics: const BouncingScrollPhysics(),
+              itemCount: allInterfaces.length,
+              itemBuilder: (context, index) {
+                final iface = allInterfaces[index];
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1C1C1E),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                iface['is_active']
+                                  ? Icons.settings_ethernet
+                                  : Icons.signal_wifi_off,
+																	color: iface['is_active']
+                                  ? Colors.green
+                                  : Colors.grey,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                iface['name'],
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                      ],
-                    ),
-                    iface['is_default']
-                      ? Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.green.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: Colors.green.withValues(alpha: 0.5)),
-                          ),
-                        child: const Text(
-                          "DEFAULT",
-                          style: TextStyle(
-                            color: Colors.greenAccent, 
-                            fontSize: 8, 
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
+                          iface['is_default']
+														? Container(
+																padding: const EdgeInsets.symmetric(
+																		horizontal: 4, vertical: 2),
+																decoration: BoxDecoration(
+																	color: Colors.green.withValues(alpha: 0.15),
+																	borderRadius: BorderRadius.circular(4),
+																	border: Border.all(
+																			color: Colors.green.withValues(alpha: 0.5)),
+																),
+																child: const Text(
+																	"DEFAULT",
+																	style: TextStyle(
+																		color: Colors.greenAccent,
+																		fontSize: 8,
+																		fontWeight: FontWeight.bold,
+																		letterSpacing: 0.5,
+																	),
+																),
+															)
+														: const SizedBox(),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            "IP: ${iface['ip_addresses'].isNotEmpty ? iface['ip_addresses'][0] : 'N/A'}",
+                            style: const TextStyle(
+                              color: Colors.white54,
+                              fontSize: 12,
                             ),
                           ),
-                        )
-                      : const SizedBox(),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      "IP: ${iface['ip_addresses'].isNotEmpty ? iface['ip_addresses'][0] : 'N/A'}",
-                      style: const TextStyle(
-                        color: Colors.white54,
-                        fontSize: 12,
+                          Text(
+                            "${iface['download_speed']} ↓  ${iface['upload_speed']} ↑",
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    Text(
-                      "${iface['download_speed']} ↓  ${iface['upload_speed']} ↑",
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                );
+              },
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -248,7 +264,7 @@ class _NetworkPageState extends State<NetworkPage> {
           const SizedBox(height: 12),
           // Scrollable container for ports
           Container(
-            constraints: const BoxConstraints(maxHeight: 250),
+            constraints: const BoxConstraints(maxHeight: 300),
             child: ListView.builder(
               shrinkWrap: true,
               physics: const BouncingScrollPhysics(),

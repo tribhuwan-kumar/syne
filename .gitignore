@@ -50,3 +50,4 @@ apkdump
 **/android/key.properties
 *.jks*
 release-keystore*
+/assets/bin

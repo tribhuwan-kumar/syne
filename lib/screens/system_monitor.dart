@@ -154,6 +154,7 @@ class _SystemMonitorState extends State<SystemMonitor> {
         activeNetworks = (data['networks'] as List)
             .map((e) => Map<String, dynamic>.from(e))
             .where((n) => n['name'] != 'lo' && n['is_active'] == true)
+						.take(2)
             .toList();
       }
     });
@@ -407,7 +408,9 @@ class _SystemMonitorState extends State<SystemMonitor> {
   }
 
   Widget _buildBatteryCard() {
-    if (batState.isEmpty) return const SizedBox.shrink();
+    if (batPercent.toLowerCase().contains('nan')) {
+      return const SizedBox.shrink();
+    }
     return Padding(
       padding: const EdgeInsets.only(bottom: 15),
       child: glassCard(
