@@ -219,25 +219,32 @@ class _NetworkPageState extends State<NetworkPage> {
                         ],
                       ),
                       const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            "IP: ${iface['ip_addresses'].isNotEmpty ? iface['ip_addresses'][0] : 'N/A'}",
-                            style: const TextStyle(
-                              color: Colors.white54,
-                              fontSize: 12,
-                            ),
-                          ),
-                          Text(
-                            "${iface['download_speed']} ↓  ${iface['upload_speed']} ↑",
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
+											Row(
+													mainAxisAlignment: MainAxisAlignment.spaceBetween,
+													crossAxisAlignment: CrossAxisAlignment.start,
+													children: [
+													Flexible(
+														child: Text(
+															"IP: ${iface['ip_addresses'].firstWhere(
+																(ip) => !ip.toString().contains(':'), // IPv4 addresses never contain colons
+																orElse: () => iface['ip_addresses'].isNotEmpty ? iface['ip_addresses'][0] : 'N/A',
+															)}",
+															style: const TextStyle(
+																color: Colors.white54,
+																fontSize: 12,
+																),
+															),
+														),
+													const SizedBox(width: 8),
+													Text(
+														"${iface['download_speed']} ↓  ${iface['upload_speed']} ↑",
+														style: const TextStyle(
+															color: Colors.white70,
+															fontSize: 12,
+														),
+													),
+												],
+											)
                     ],
                   ),
                 );

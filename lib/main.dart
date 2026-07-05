@@ -40,7 +40,14 @@ class SyneState extends State<Syne> {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark(),
+      theme: ThemeData.dark().copyWith(
+        textTheme: ThemeData.dark().textTheme.apply(
+          fontFamily: 'RedHatText',
+        ),
+        primaryTextTheme: ThemeData.dark().primaryTextTheme.apply(
+          fontFamily: 'RedHatText',
+        ),
+      ),
       home: hasServers ? ServerListPage() : LoginPage(),
     );
   }

@@ -540,9 +540,10 @@ class _HomePageState extends State<HomePage> {
                       ),
 
                       Text(
-                        (iface['ip_addresses'] as List).isNotEmpty
-                            ? iface['ip_addresses'][0]
-                            : "No IP Binding",
+												"IP: ${iface['ip_addresses'].firstWhere(
+													(ip) => !ip.toString().contains(':'), // IPv4 addresses never contain colons
+													orElse: () => iface['ip_addresses'].isNotEmpty ? iface['ip_addresses'][0] : 'No IP Binding',
+												)}",
                         style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
                       ),
                     ],
