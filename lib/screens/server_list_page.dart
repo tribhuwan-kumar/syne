@@ -47,7 +47,7 @@ class _ServerListPageState extends State<ServerListPage> {
       if (!mounted) return;
 
       // Close the "Connecting..." dialog
-      Navigator.pop(context); 
+      Navigator.pop(context);
 
       Navigator.push(
         context,
@@ -66,7 +66,7 @@ class _ServerListPageState extends State<ServerListPage> {
         message: e.toString(),
         actions: [
           AppDialog.action(
-            "OK", 
+            "OK",
             () => Navigator.pop(context)),
         ],
       );
@@ -113,7 +113,7 @@ class _ServerListPageState extends State<ServerListPage> {
               children: [
                 Text(
                   server.host,
-                  style: GoogleFonts.inter(
+                  style: TextStyle(
                     color: Colors.white,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,

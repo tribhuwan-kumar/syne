@@ -49,7 +49,7 @@ pub fn get_memory_metrics(sys: &mut System) -> MemoryMetrics {
     let used = sys.used_memory();
     let free = sys.free_memory();
     let available = sys.available_memory();
-    
+
     // Cached/Standby memory calculation
     let cached = total.saturating_sub(used).saturating_sub(free);
 
@@ -65,12 +65,12 @@ pub fn get_memory_metrics(sys: &mut System) -> MemoryMetrics {
 /// Polls mounted disks and calculates usage cross-platform
 pub fn get_disk_metrics(disks: &mut Disks) -> Vec<DiskMetrics> {
     disks.refresh(true);
-    
+
     disks.iter().map(|disk| {
         let total = disk.total_space();
         let available = disk.available_space();
         let used = total.saturating_sub(available);
-        
+
         let use_percent = if total > 0 {
             (used as f64 / total as f64 * 100.0).round() as u64
         } else {
@@ -182,11 +182,15 @@ pub fn get_hardware_metrics(sys: &mut System, components: &mut Components) -> Ha
                 temperature_c: temp,
             });
 
-            if label.contains("cpu") || label.contains("core") {
-                total_cpu_temp += temp;
-                cpu_temp_count += 1.0;
-            } 
-            
+			let is_cpu = label.contains("cpu")
+				|| label.contains("core")
+				|| (cfg!(target_os = "macos") && (label.contains("pmu") && label.contains("tdie")));
+
+			if is_cpu {
+				total_cpu_temp += temp;
+				cpu_temp_count += 1.0;
+			}
+
             #[cfg(feature = "gpu")]
             if label.contains("gpu") || label.contains("amdgpu") || label.contains("edge") {
                 total_gpu_temp += temp;
@@ -204,7 +208,7 @@ pub fn get_hardware_metrics(sys: &mut System, components: &mut Components) -> Ha
 
         if let Ok(gpu) = gfxinfo::active_gpu() {
             gfx_gpu_model = gpu.model().to_string();
-            
+
             {
                 let info = gpu.info();
                 gfx_gpu_usage = format!("{}%", info.load_pct());
@@ -251,7 +255,7 @@ pub fn get_hardware_metrics(sys: &mut System, components: &mut Components) -> Ha
 pub fn get_open_ports() -> Vec<OpenPortMetrics> {
     let af_flags = AddressFamilyFlags::IPV4 | AddressFamilyFlags::IPV6;
     let proto_flags = ProtocolFlags::TCP | ProtocolFlags::UDP;
-    
+
     let mut open_ports = Vec::new();
 
     if let Ok(sockets) = get_sockets_info(af_flags, proto_flags) {
@@ -283,7 +287,7 @@ pub fn get_open_ports() -> Vec<OpenPortMetrics> {
             });
         }
     }
-    
+
     open_ports
 }
 
@@ -297,7 +301,7 @@ pub async fn fetch_ping_stats() -> (String, String) {
 
     if let Ok(output) = cmd {
         let stdout = String::from_utf8_lossy(&output.stdout).to_lowercase();
-        
+
         let mut latency = "N/A".to_string();
         let mut packet_loss = "100%".to_string();
 
@@ -320,7 +324,7 @@ pub async fn fetch_ping_stats() -> (String, String) {
         }
         return (latency, packet_loss);
     }
-    
+
     ("N/A".to_string(), "100%".to_string())
 }
 
@@ -364,7 +368,7 @@ pub fn get_process_metrics(sys: &mut System, users: &mut Users) -> Vec<ProcessMe
         ProcessMetrics {
             pid: p.pid().as_u32().to_string(),
             program,
-            command, 
+            command,
             user: user_name,
             memory: format_size(p.memory()),
             cpu_percent: format!("{:.1}%", scaled_cpu),
@@ -384,7 +388,7 @@ pub fn get_battery_metrics(battery_manager: &Option<Manager>) -> Vec<BatteryMetr
                     let percent_val = bat.state_of_charge().get::<percent>();
                     let voltage_val = bat.voltage().get::<volt>();
                     let wattage_val = bat.energy_rate().get::<watt>();
-                    
+
                     // Current = watts / volts
                     let amperage_val = if voltage_val > 0.0 {
                         wattage_val / voltage_val
