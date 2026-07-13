@@ -16,6 +16,7 @@ class SystemUpdatesPage extends StatefulWidget {
 
 class _SystemUpdatesPage extends State<SystemUpdatesPage> {
   bool isLoading = true;
+  bool needsSync = true;
   String osType = "Detecting...";
 
   List<Map<String, String>> updates = [];
@@ -25,41 +26,79 @@ class _SystemUpdatesPage extends State<SystemUpdatesPage> {
   String error = "";
   String searchQuery = "";
 
-  // Unified Package Manager Configuration
+  // Unified package manager config
   final Map<String, Map<String, String>> pmConfig = {
     // Arch based
-    "Arch Linux": {"list": "pacman -Qu", "upgrade": "pacman -S --noconfirm"},
-    "Manjaro": {"list": "pacman -Qu", "upgrade": "pacman -S --noconfirm"},
-    "EndeavourOS": {"list": "pacman -Qu", "upgrade": "pacman -S --noconfirm"},
-
+    "Arch Linux": {
+      "sync": "pacman -Sy",
+      "list": "pacman -Qu",
+      "upgrade": "pacman -S --noconfirm",
+    },
+    "Manjaro": {
+      "sync": "pacman -Sy",
+      "list": "pacman -Qu",
+      "upgrade": "pacman -S --noconfirm",
+    },
+    "EndeavourOS": {
+      "sync": "pacman -Sy",
+      "list": "pacman -Qu",
+      "upgrade": "pacman -S --noconfirm",
+    },
     // Debian based
     "Debian/Ubuntu": {
+      "sync": "apt-get update",
       "list": "apt list --upgradable",
       "upgrade": "apt-get install --only-upgrade -y",
     },
     "Linux Mint": {
+      "sync": "apt-get update",
       "list": "apt list --upgradable",
       "upgrade": "apt-get install --only-upgrade -y",
     },
     "Pop!_OS": {
+      "sync": "apt-get update",
       "list": "apt list --upgradable",
       "upgrade": "apt-get install --only-upgrade -y",
     },
-
-    // RPM based
-    "Fedora": {"list": "dnf check-update", "upgrade": "dnf upgrade -y"},
-    "Red Hat": {"list": "dnf check-update", "upgrade": "dnf upgrade -y"},
-
+    // RPM based, Fedora/RHEL sync automatically during check-update
+    "Fedora": {
+      "sync": "echo 'Synced'",
+      "list": "dnf check-update",
+      "upgrade": "dnf upgrade -y",
+    },
+    "Red Hat": {
+      "sync": "echo 'Synced'",
+      "list": "dnf check-update",
+      "upgrade": "dnf upgrade -y",
+    },
     // APK based
-    "Alpine Linux": {"list": "apk version -l '<'", "upgrade": "apk add -u"},
-    "postmarketOS": {"list": "apk version -l '<'", "upgrade": "apk add -u"},
-
+    "Alpine Linux": {
+      "sync": "apk update",
+      "list": "apk version -l '<'",
+      "upgrade": "apk add -u",
+    },
+    "postmarketOS": {
+      "sync": "apk update",
+      "list": "apk version -l '<'",
+      "upgrade": "apk add -u",
+    },
     // Zypper based
-    "openSUSE": {"list": "zypper lu", "upgrade": "zypper in -y"},
-
-    // Non Linux
-    "macOS": {"list": "brew outdated", "upgrade": "brew upgrade"},
-    "Windows": {"list": "winget upgrade", "upgrade": "winget upgrade --exact --id"},
+    "openSUSE": {
+      "sync": "zypper ref",
+      "list": "zypper lu",
+      "upgrade": "zypper in -y",
+    },
+    // macOS and Windows do not require sudo for their sync operations
+    "macOS": {
+      "sync": "brew update",
+      "list": "brew outdated",
+      "upgrade": "brew upgrade",
+    },
+    "Windows": {
+      "sync": "winget source update",
+      "list": "winget upgrade",
+      "upgrade": "winget upgrade --exact --id",
+    },
   };
 
   @override
@@ -68,7 +107,7 @@ class _SystemUpdatesPage extends State<SystemUpdatesPage> {
     fetchUpdates();
   }
 
-  Future<void> fetchUpdates() async {
+  Future<void> fetchUpdates({bool forceSync = false}) async {
     setState(() {
       isLoading = true;
       error = "";
@@ -124,10 +163,41 @@ class _SystemUpdatesPage extends State<SystemUpdatesPage> {
         throw "Unsupported OS";
       }
 
+      if (forceSync && pmConfig[osType]!.containsKey("sync")) {
+        final syncCmd = pmConfig[osType]!['sync']!;
+        bool requiresSudo =
+            !["macOS", "Windows"].contains(osType) &&
+            syncCmd != "echo 'Synced'";
+
+        if (requiresSudo) {
+          final password = await showSudoPasswordDialog();
+          if (password == null) {
+            setState(() => isLoading = false);
+            return; // User cancelled
+          }
+
+          final fullCmd = "sudo -S -k $syncCmd";
+          final session = await widget.ssh.client!.execute(fullCmd);
+          session.stdin.add(Uint8List.fromList(utf8.encode("$password\n")));
+          await session.stdin.close();
+
+          final stderr = await session.stderr
+              .cast<List<int>>()
+              .transform(utf8.decoder)
+              .join();
+          if (stderr.toLowerCase().contains("incorrect password")) {
+            throw "Authentication failed: Incorrect sudo password.";
+          }
+          await session.stdout.cast<List<int>>().transform(utf8.decoder).join();
+        } else {
+          await widget.ssh.runCommand(syncCmd);
+        }
+        needsSync = false; // Successfully synced
+      }
+
       // Fetch List
       final cmd = pmConfig[osType]!['list']!;
       final rawOutput = await widget.ssh.runCommand(cmd);
-
       // Parse Output
       _parseUpdates(rawOutput);
     } catch (e) {
@@ -478,7 +548,7 @@ class _SystemUpdatesPage extends State<SystemUpdatesPage> {
 
         final errorOutput = await session.stderr.cast<List<int>>().transform(utf8.decoder).join();
 
-        if (errorOutput.toLowerCase().contains("incorrect password") || 
+        if (errorOutput.toLowerCase().contains("incorrect password") ||
             errorOutput.toLowerCase().contains("try again")) {
           throw "Authentication failed: Incorrect sudo password.";
         }
@@ -486,7 +556,6 @@ class _SystemUpdatesPage extends State<SystemUpdatesPage> {
         if (errorOutput.trim().isNotEmpty && !errorOutput.toLowerCase().contains("warning")) {
           commandOutput += "\n$errorOutput";
         }
-
       } else {
         // macOS or Windows
         final fullCmd = "$baseCmd $pkgString";
@@ -501,7 +570,6 @@ class _SystemUpdatesPage extends State<SystemUpdatesPage> {
 
       completer.complete({'success': true, 'error': null});
       selectedPackages.clear();
-
     } catch (e) {
       completer.complete({'success': false, 'error': e.toString()});
     } finally {
@@ -532,9 +600,9 @@ class _SystemUpdatesPage extends State<SystemUpdatesPage> {
           const SizedBox(height: 10),
 
           Text(
-            "${updates.length} Available",
+            "${needsSync ? "0" : updates.length} Available",
             style: const TextStyle(
-              fontSize: 32,
+              fontSize: 24,
               fontWeight: FontWeight.bold,
               color: Colors.white,
             ),
@@ -591,6 +659,39 @@ class _SystemUpdatesPage extends State<SystemUpdatesPage> {
       return Expanded(
         child: Center(
           child: Text(error, style: const TextStyle(color: Colors.red)),
+        ),
+      );
+    }
+
+    if (needsSync) {
+      return Expanded(
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.cloud_sync, color: Colors.white54, size: 48),
+              const SizedBox(height: 16),
+              const Text(
+                "Database sync required",
+                style: TextStyle(color: Colors.white, fontSize: 16),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFA2D9A1),
+                ),
+                onPressed: () => fetchUpdates(forceSync: true),
+                icon: const Icon(Icons.sync, color: Colors.black),
+                label: const Text(
+                  "Sync now",
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -652,7 +753,7 @@ class _SystemUpdatesPage extends State<SystemUpdatesPage> {
                   ),
                   secondary: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start, 
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
                         "Latest",
@@ -705,25 +806,28 @@ class _SystemUpdatesPage extends State<SystemUpdatesPage> {
               });
             },
           ),
-          IconButton(icon: const Icon(Icons.refresh), onPressed: fetchUpdates),
+					IconButton(
+						icon: const Icon(Icons.sync),
+						tooltip: "Sync database",
+						onPressed: () => fetchUpdates(forceSync: true),
+					),
         ],
       ),
       body: Column(children: [summaryCard(), updatesList()]),
       floatingActionButton: selectedPackages.isNotEmpty
-        ? FloatingActionButton.extended(
-          onPressed: isLoading ? null : runUpgrade,
-          backgroundColor: const Color(0xFFA2D9A1),
-          icon: const Icon(Icons.upload_rounded, color: Colors.black),
-          label: Text(
-            "Upgrade ${selectedPackages.length}",
-            style: const TextStyle(
-              color: Colors.black,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        )
-        : null,
+				? FloatingActionButton.extended(
+						onPressed: isLoading ? null : runUpgrade,
+						backgroundColor: const Color(0xFFA2D9A1),
+						icon: const Icon(Icons.upload_rounded, color: Colors.black),
+						label: Text(
+							"Upgrade ${selectedPackages.length}",
+							style: const TextStyle(
+								color: Colors.black,
+								fontWeight: FontWeight.bold,
+							),
+						),
+					)
+				: null,
     );
   }
 }
-

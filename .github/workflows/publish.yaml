@@ -20,28 +20,28 @@ jobs:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             binary_name: metrics
-            output_name: metrics-linux-x86_64
+            output_name: metrics-linux-${{ github.ref_name }}-x86_64
             use_cross: false
             features: "--features gpu"
 
           - os: ubuntu-latest
             target: aarch64-unknown-linux-musl
             binary_name: metrics
-            output_name: metrics-linux-aarch64
+            output_name: metrics-linux-${{ github.ref_name }}-aarch64
             use_cross: true
             features: ""
 
           - os: ubuntu-latest
             target: x86_64-pc-windows-gnu
             binary_name: metrics.exe
-            output_name: metrics-windows-x86_64.exe
+            output_name: metrics-windows-${{ github.ref_name }}-x86_64.exe
             use_cross: true
             features: "--features gpu"
 
           - os: macos-latest
             target: aarch64-apple-darwin
             binary_name: metrics
-            output_name: metrics-macos-aarch64
+            output_name: metrics-macos-${{ github.ref_name }}-aarch64
             use_cross: false
             features: ""
 

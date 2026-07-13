@@ -2,8 +2,8 @@ class Server {
   final String id;
   final int port;
   final String name;
-  final String host;
-  final String username;
+  final String host;				// Server's ip
+  final String username;		// Hostname
   final String password;
 
   Server({

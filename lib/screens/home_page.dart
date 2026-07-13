@@ -38,7 +38,7 @@ class _HomePageState extends State<HomePage> {
   String cpuTemp = "--";
   String gpuTemp = "";
 
-  // Secondary Hero State: Stores the two main interfaces
+  // Secondary hero state: stores the two main interfaces
   List<Map<String, dynamic>> topInterfaces = [];
 
   StreamSubscription<Map<String, dynamic>>? _metricsSubscription;

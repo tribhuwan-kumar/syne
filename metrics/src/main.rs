@@ -28,13 +28,18 @@ use crate::types::{
 
 #[tokio::main]
 async fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    if args.contains(&"--version".to_string()) || args.contains(&"-V".to_string()) {
+        println!("v{}", env!("CARGO_PKG_VERSION"));
+        std::process::exit(0);
+    }
     let mut sys = System::new_all();
     let mut disks = Disks::new_with_refreshed_list();
     let mut networks = Networks::new_with_refreshed_list();
     let mut components = Components::new_with_refreshed_list();
     let mut users = Users::new_with_refreshed_list();
     let battery_manager = starship_battery::Manager::new().ok();
-    
+
     // Shared state for asynchronous network calls
     let external_stats = Arc::new(RwLock::new(NetworkExternalStats::default()));
 
@@ -55,7 +60,7 @@ async fn main() {
         }
     });
 
-    // Fetch latency & packet loss every 5 seconds on background thread 
+    // Fetch latency & packet loss every 5 seconds on background thread
     let stats_ping_clone = Arc::clone(&external_stats);
     tokio::spawn(async move {
         let mut ticker = interval(Duration::from_secs(5));
@@ -91,8 +96,8 @@ async fn main() {
             memory: get_memory_metrics(&mut sys),
             disks: get_disk_metrics(&mut disks),
             networks: get_network_metrics(&mut networks, elapsed_secs),
-            external_network: ext_network_data, 
-            open_ports: get_open_ports(),       
+            external_network: ext_network_data,
+            open_ports: get_open_ports(),
             processes: get_process_metrics(&mut sys, &mut users),
             batteries: get_battery_metrics(&battery_manager),
         };
@@ -104,10 +109,9 @@ async fn main() {
             // Create a 4-byte Big-Endian header
             // Indicating the size of the incoming payload
             let header = payload_len.to_be_bytes();
-
-            if stdout.write_all(marker).is_err() || 
-                stdout.write_all(&header).is_err() || 
-                stdout.write_all(&packed_bytes).is_err() || 
+            if stdout.write_all(marker).is_err() ||
+                stdout.write_all(&header).is_err() ||
+                stdout.write_all(&packed_bytes).is_err() ||
                 stdout.flush().is_err() {
                 break;
             }

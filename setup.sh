@@ -1,16 +1,17 @@
 #!/bin/bash
-# This run on linux
+# This runs only for dev
+
 # rustup target add x86_64-pc-windows-gnu aarch64-pc-windows-gnullvm
 # rustup target add x86_64-unknown-linux-gnu aarch64-unknown-linux-musl
 # rustup target add x86_64-apple-darwin aarch64-apple-darwin
 
 # Should be in this format
-# metrics-linux-x86_64
-# metrics-linux-aarch64
-# metrics-macos-x86_64
-# metrics-macos-aarch64
-# metrics-windows-x86_64.exe
-# metrics-windows-aarch64.exe
+# metrics-linux-v2.1.2-x86_64
+# metrics-linux-v2.1.2-aarch64
+# metrics-macos-v2.1.2-x86_64
+# metrics-macos-v2.1.2-aarch64
+# metrics-windows-v2.1.2-x86_64.exe
+# metrics-windows-v2.1.2-aarch64.exe
 set -e
 
 # Initialize action flags
@@ -44,20 +45,29 @@ fi
 
 if [ "$DO_BUILD" = true ]; then
   echo "Starting build process..."
+  VERSION=$(sed -nE '/^\[package\]/,/^\[.*\]/ { s/^version = "(.*)"/\1/p; /^version =/q }' "$PWD/metrics/Cargo.toml")
+	VERSION="v$VERSION"
+  echo "Detected metrics version: $VERSION"
   # With gpu feature on x86_64 Linux
+	echo "Building for x86_64-unknown-linux-gnu"
   cargo build --release --target x86_64-unknown-linux-gnu --features gpu
-  rm -f "$PWD/assets/bin/metrics-linux-x86_64"
-  cp "$PWD/target/x86_64-unknown-linux-gnu/release/metrics" "$PWD/assets/bin/metrics-linux-x86_64"
+  rm -f "$PWD/assets/bin/metrics-linux-$VERSION-x86_64"
+  cp "$PWD/target/x86_64-unknown-linux-gnu/release/metrics" "$PWD/assets/bin/metrics-linux-$VERSION-x86_64"
+	echo "Build completed for x86_64-unknown-linux-gnu"
 
   # Keep musl for aarch64 Linux, no gpu
+	echo "Building for aarch64-unknown-linux-musl"
   cargo build --release --target aarch64-unknown-linux-musl
-  rm -f "$PWD/assets/bin/metrics-linux-aarch64"
-  cp "$PWD/target/aarch64-unknown-linux-musl/release/metrics" "$PWD/assets/bin/metrics-linux-aarch64"
+  rm -f "$PWD/assets/bin/metrics-linux-$VERSION-aarch64"
+  cp "$PWD/target/aarch64-unknown-linux-musl/release/metrics" "$PWD/assets/bin/metrics-linux-$VERSION-aarch64"
+	echo "Build completed for aarch64-unknown-linux-musl"
 
   # Windows with gpu feature on x86_64 & build with cross
-  cross build --release --target x86_64-pc-windows-gnu --features gpu
-  rm -f "$PWD/assets/bin/metrics-windows-x86_64.exe"
-  cp "$PWD/target/x86_64-pc-windows-gnu/release/metrics.exe" "$PWD/assets/bin/metrics-windows-x86_64.exe"
+	# echo "Building for x86_64-pc-windows-gnu"
+ #  cross build --release --target x86_64-pc-windows-gnu --features gpu
+ #  rm -f "$PWD/assets/bin/metrics-windows-$VERSION-x86_64.exe"
+ #  cp "$PWD/target/x86_64-pc-windows-gnu/release/metrics.exe" "$PWD/assets/bin/metrics-windows-$VERSION-x86_64.exe"
+	# echo "Build completed for x86_64-pc-windows-gnu"
 fi
 
 if [ "$DO_VERSION" = true ]; then

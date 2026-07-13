@@ -83,26 +83,12 @@ flutter:
 
   # To add assets to your application, add an assets section, like this:
   assets:
+    # Bin, include whole directory
+    - assets/bin/
     # Keep avatar unchangeable for now
     - assets/avatar.png
-    # Bins
-    - assets/bin/metrics-linux-x86_64
-    - assets/bin/metrics-linux-aarch64
-    - assets/bin/metrics-macos-aarch64
-    - assets/bin/metrics-windows-x86_64.exe
     # Fonts
     - assets/fonts/FiraCodeNerdFontMono-Regular.ttf
-    - assets/fonts/REDHAT_TEXT_OFL.txt
-    - assets/fonts/RedHatText-Regular.ttf
-    - assets/fonts/RedHatText-Italic.ttf
-    - assets/fonts/RedHatText-Bold.ttf
-    - assets/fonts/RedHatText-BoldItalic.ttf
-    - assets/fonts/RedHatText-Light.ttf
-    - assets/fonts/RedHatText-LightItalic.ttf
-    - assets/fonts/RedHatText-Medium.ttf
-    - assets/fonts/RedHatText-MediumItalic.ttf
-    - assets/fonts/RedHatText-SemiBold.ttf
-    - assets/fonts/RedHatText-SemiBoldItalic.ttf
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
@@ -119,29 +105,4 @@ flutter:
     - family: FiraCodeNerd
       fonts:
         - asset: assets/fonts/FiraCodeNerdFontMono-Regular.ttf
-    - family: RedHatText
-      fonts:
-        - asset: assets/fonts/RedHatText-Regular.ttf
-        - asset: assets/fonts/RedHatText-Italic.ttf
-          style: italic
-        - asset: assets/fonts/RedHatText-Light.ttf
-          weight: 300
-        - asset: assets/fonts/RedHatText-LightItalic.ttf
-          weight: 300
-          style: italic
-        - asset: assets/fonts/RedHatText-Medium.ttf
-          weight: 500
-        - asset: assets/fonts/RedHatText-MediumItalic.ttf
-          weight: 500
-          style: italic
-        - asset: assets/fonts/RedHatText-SemiBold.ttf
-          weight: 600
-        - asset: assets/fonts/RedHatText-SemiBoldItalic.ttf
-          weight: 600
-          style: italic
-        - asset: assets/fonts/RedHatText-Bold.ttf
-          weight: 700
-        - asset: assets/fonts/RedHatText-BoldItalic.ttf
-          weight: 700
-          style: italic
 

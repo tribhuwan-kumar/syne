@@ -447,8 +447,10 @@ class _SystemMonitorState extends State<SystemMonitor> {
             const SizedBox(height: 12),
             _buildInfoRow("State", batState),
             _buildInfoRow("Voltage", batV, isMonospace: true),
-            _buildInfoRow("Wattage", batW, isMonospace: true),
-            _buildInfoRow("Amperage", batA, isMonospace: true),
+						if(batW.toLowerCase() != '0.0 w')
+							_buildInfoRow("Wattage", batW, isMonospace: true),
+						if(batA.toLowerCase() != '0.0 a')
+							_buildInfoRow("Amperage", batA, isMonospace: true),
           ],
         ),
       ),

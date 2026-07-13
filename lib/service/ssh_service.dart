@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:msgpack_dart/msgpack_dart.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:package_info_plus/package_info_plus.dart';
 
 class SSHService {
   SSHClient? client;
@@ -288,7 +289,8 @@ class SSHService {
   /// Deploys the cross-platform Rust binary and starts the MessagePack stream
   Future<void> startMetricsStream({void Function(String step, double progress)? onProgress}) async {
     if (!isConnected) return;
-    if (_metricsSession != null) return; // Stream already running
+		// Stream already running
+    if (_metricsSession != null) return;
 
     try {
       onProgress?.call("Detecting Remote OS...", 0.1);
@@ -325,22 +327,42 @@ class SSHService {
 
       osType = detectedOs;
 
-      // Map to the exact binary name in your Flutter assets folder
-      final assetPath = 'assets/bin/metrics-$detectedOs-$archString$binaryExtension';
-      final remotePath = '.syne_metrics$binaryExtension';
+			final PackageInfo packageInfo = await PackageInfo.fromPlatform();
+			String version = 'v${packageInfo.version}';
 
-      // Load from Flutter assets
+      // Map to the exact binary name `metrics-linux-v2.1.2-aarch64`
+      final assetPath = 'assets/bin/metrics-$detectedOs-$version-$archString$binaryExtension';
+      final remotePath = '.syne-metrics-$version$binaryExtension';
+
+      // Load from flutter assets
       onProgress?.call("Loading internal binary...", 0.3);
-      final binaryData = await rootBundle.load(assetPath);
-      final binaryBytes = binaryData.buffer.asUint8List();
-      final localSize = binaryBytes.length;
+
+			late final Uint8List binaryBytes;
+      try {
+        final binaryData = await rootBundle.load(assetPath);
+        binaryBytes = binaryData.buffer.asUint8List();
+      } catch (e) {
+        throw Exception("Unsupported remote server: $detectedOs-$archString");
+      }
 
       bool needsUpload = true;
       try {
-        // Fetch remote file metadata safely via SFTP
-        final remoteStat = await sftp!.stat(remotePath);
-        if (remoteStat.size == localSize) {
-          // Binary exists and sizes match, skip upload
+				// Fetch remote file metadata safely via SFTP
+				await sftp!.stat(remotePath);
+
+        onProgress?.call("Checking metrics version...", 0.4);
+
+				if (detectedOs != "windows") {
+          await runCommand("pkill -f $remotePath");
+          await runCommand("chmod +x $remotePath");
+        } else {
+          await runCommand("taskkill /F /IM $remotePath");
+        }
+
+        final execVersionCmd = detectedOs == "windows" ? ".\\$remotePath --version" : "./$remotePath --version";
+        final versionOutput = await runCommand(execVersionCmd);
+
+        if (versionOutput.trim().contains(packageInfo.version)) {
           needsUpload = false;
         }
       } catch (_) {

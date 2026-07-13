@@ -77,12 +77,6 @@ class _ServerListPageState extends State<ServerListPage> {
     }
   }
 
-  void deleteServer(Server server) async {
-    await storage.deleteServer(server.name);
-
-    loadServers();
-  }
-
   Widget serverCard(Server server) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -102,7 +96,7 @@ class _ServerListPageState extends State<ServerListPage> {
               color: const Color(0xFFA2D9A1),
               borderRadius: BorderRadius.circular(6),
             ),
-            child: const Icon(Icons.storage, color: Colors.black),
+            child: const Icon(Icons.dns, color: Colors.black),
           ),
 
           const SizedBox(width: 16),
@@ -112,20 +106,33 @@ class _ServerListPageState extends State<ServerListPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  server.host,
+                  server.name,
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 16,
+                    fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
 
                 const SizedBox(height: 4),
 
-                Text(
-                  "user: ${server.username}",
-                  style: GoogleFonts.inter(color: Colors.grey, fontSize: 14),
-                ),
+								Row(
+									children:[
+										Text(
+										"User: ${server.username}",
+										style: TextStyle(color: Colors.grey, fontSize: 12),
+										),
+									const SizedBox(width: 2),
+									Text(" | ", style: TextStyle(color: Colors.grey, fontSize: 12)),
+									const SizedBox(width: 2),
+									Text(
+										"IP: ${server.host}",
+										style: TextStyle(
+											color: Colors.grey,
+											fontSize: 12,
+										)),
+									]
+								)
               ],
             ),
           ),
@@ -136,7 +143,7 @@ class _ServerListPageState extends State<ServerListPage> {
               AppDialog.show(
                 context: context,
                 title: "Delete Server",
-                message: "Are you sure you want to delete below server?\nIP: ${server.host}\nUser: ${server.username}",
+                message: "Are you sure you want to delete below server?\n User: ${server.username}\n IP: ${server.host}",
                 type: DialogType.warning,
                 actions: [
                   AppDialog.action("Cancel", () => Navigator.pop(context)),
@@ -192,17 +199,6 @@ class _ServerListPageState extends State<ServerListPage> {
               ),
 
               SizedBox(height: 16),
-
-              Row(
-                children: [
-                  Text(
-                    "Servers",
-                    style: TextStyle(color: Colors.white70, fontSize: 16),
-                  ),
-                ],
-              ),
-              SizedBox(height: 16),
-
 
               Expanded(
                 child: servers.isEmpty

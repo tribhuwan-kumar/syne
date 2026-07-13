@@ -38,7 +38,7 @@ class _LoginPageState extends State<LoginPage> {
 
     final input = serverAddress.text.trim();
     String hostValue = input;
-    int portValue = 22; 
+    int portValue = 22;
 
     if (input.contains(':')) {
       final parts = input.split(':');
@@ -74,7 +74,14 @@ class _LoginPageState extends State<LoginPage> {
     try {
       // Establish ssh connection
       await ssh.connect(hostValue, portValue, user.text, pass.text);
-      
+
+			String fetchedHostname = hostValue;
+			try {
+        fetchedHostname = (await ssh.runCommand("hostname")).trim();
+        if (fetchedHostname.isEmpty) fetchedHostname = hostValue;
+      } catch (_) {
+        // Ignore errors
+      }
       // Deploy agent and update progress
       await ssh.startMetricsStream(
         onProgress: (status, progress) {
@@ -96,7 +103,7 @@ class _LoginPageState extends State<LoginPage> {
       await storage.saveServer(
         Server(
           id: generateId(),
-          name: hostValue, 
+          name: fetchedHostname,
           host: hostValue,
           port: portValue,
           username: user.text,
@@ -107,7 +114,7 @@ class _LoginPageState extends State<LoginPage> {
       if (!mounted) return;
 
       // Close Loading Dialog
-      Navigator.pop(context); 
+      Navigator.pop(context);
 
       // Navigate to Home
       Navigator.pushReplacement(
@@ -134,7 +141,7 @@ class _LoginPageState extends State<LoginPage> {
             () => Navigator.pop(context),
           ),
         ],
-      );  
+      );
     }
   }
 
