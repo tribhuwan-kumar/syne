@@ -35,10 +35,58 @@ class SSHService {
     _isIntentionalDisconnect = false;
 
     final socket = await SSHSocket.connect(ip, port);
-    client = SSHClient(socket, username: user, onPasswordRequest: () => pass);
+    client = SSHClient(
+			socket,
+			username: user,
+			onPasswordRequest: () => pass,
+			keepAliveInterval: const Duration(seconds: 15),
+		);
     sftp = await client!.sftp();
 
-    _startKeepAlive();
+		final currentClient = client;
+		currentClient!.done.then((_) {
+      if (client == currentClient && !_isIntentionalDisconnect && onConnectionLost != null) {
+        onConnectionLost!();
+      }
+    }).catchError((_) {
+      if (client == currentClient && !_isIntentionalDisconnect && onConnectionLost != null) {
+        onConnectionLost!();
+      }
+    });
+  }
+
+	Future<void> disconnect() async {
+    _isIntentionalDisconnect = true;
+    _keepAliveTimer?.cancel();
+
+    final oldClient = client;
+    final oldSftp = sftp;
+    _metricsSession = null;
+
+    // Kill the agent before disconnecting
+    if (client != null && !client!.isClosed) {
+      final PackageInfo packageInfo = await PackageInfo.fromPlatform();
+      String version = 'v${packageInfo.version}';
+      final remotePath = '.syne-metrics-$version${osType == "windows" ? ".exe" : ""}';
+      try {
+        if (osType == "windows") {
+          await client!.execute("taskkill /F /IM $remotePath");
+        } else {
+          // Use -9 to Force Kill immediately
+          await client!.execute("pkill -9 -f $remotePath");
+        }
+      } catch (_) {}
+    }
+
+    client = null;
+    sftp = null;
+
+    try {
+      oldSftp?.close();
+      oldClient?.close();
+    } catch (_) {
+			// Ignore
+		}
   }
 
   Future<void> reconnect() async {
@@ -81,13 +129,45 @@ class SSHService {
     }
   }
 
-  Future<String> runCommand(String command) async {
-    final marker = 'SYNE_DATA_START';
-    final fullCommand = 'echo "$marker"; $command';
-    final session = await _safe(() => client!.execute(fullCommand));
-    final rawOutput = await session.stdout.cast<List<int>>().transform(utf8.decoder).join();
-    return rawOutput.contains(marker) ? rawOutput.split(marker).last.trim() : rawOutput.trim();
-  }
+	Future<String> runCommand(String command) async {
+		final marker = 'SYNE_DATA_START';
+		final exitMarker = 'SYNE_EXIT_CODE';
+		String fullCommand;
+		if (osType == "windows") {
+			// Windows cmd syntax '&' and '%errorlevel%'
+			// Caret to escape the percent signs if needed, or print directly
+			fullCommand = 'echo $marker & $command & call echo $exitMarker %errorlevel%';
+		} else {
+			// macOS / Linux POSIX syntax uses ';' and '$?'
+			fullCommand = 'echo "$marker"; $command; echo "$exitMarker \$?"';
+		}
+
+		final session = await _safe(() => client!.execute(fullCommand));
+		final results = await Future.wait([
+			session.stdout.cast<List<int>>().transform(utf8.decoder).join(),
+			session.stderr.cast<List<int>>().transform(utf8.decoder).join(),
+		]);
+
+		final rawOutput = results[0];
+		final rawError = results[1].trim();
+
+		int exitCode = 0;
+		String cleanOutput = rawOutput;
+
+		if (rawOutput.contains(exitMarker)) {
+			final parts = rawOutput.split(exitMarker);
+			cleanOutput = parts[0].trim();
+			exitCode = int.tryParse(parts.last.trim()) ?? 0;
+		}
+		if (cleanOutput.contains(marker)) {
+			cleanOutput = cleanOutput.split(marker).last.trim();
+		}
+		if (exitCode != 0) {
+			throw Exception('Command failed with exit code $exitCode:\n"${rawError.isNotEmpty ? rawError : cleanOutput}"');
+		}
+
+		return cleanOutput;
+	}
 
   Future<String> run(String s) async {
     return await runCommand(s);
@@ -107,43 +187,47 @@ class SSHService {
     }).toList();
   }
 
-  Future<void> downloadFile({
+	Future<void> downloadFile({
     required String remotePath,
     required String localPath,
-    required Function(double progress) onProgress,
-    required Function() isCancelled,
+    required Function(double) onProgress,
+    required bool Function() isCancelled,
   }) async {
-    await _safe(() async {
-      final remoteFile = await sftp!.open(remotePath);
-      final stat = await remoteFile.stat();
-      final totalSize = stat.size ?? 0;
+    sftp = await client!.sftp();
 
-      final file = File(localPath);
-      final sink = file.openWrite();
+    final remoteFile = await sftp!.open(remotePath);
+    final fileStat = await remoteFile.stat();
+    final totalSize = fileStat.size ?? 0;
 
-      int received = 0;
+    final localFile = File(localPath);
+    final sink = localFile.openWrite();
+    int downloaded = 0;
 
-      await for (final chunk in remoteFile.read()) {
+    try {
+      final progressStream = remoteFile.read(chunkSize: 128 * 1024).map((chunk) {
         if (isCancelled()) {
-          await sink.close();
-          await remoteFile.close();
-          if (await file.exists()) {
-            await file.delete();
-          }
-          return;
+          throw "Cancelled!!";
         }
 
-        received += chunk.length;
-        sink.add(chunk);
-
-        if (totalSize != 0) {
-          onProgress(received / totalSize);
+        downloaded += chunk.length;
+        if (totalSize > 0) {
+          onProgress(downloaded / totalSize);
         }
-      }
 
+        return chunk;
+      });
+      // Natively handle backpressure, preventing the RAM from overflowing!
+      await sink.addStream(progressStream);
+
+    } finally {
+      await sink.flush();
       await sink.close();
       await remoteFile.close();
-    });
+      // If the user cancelled, delete the corrupted partial file
+      if (isCancelled() && await localFile.exists()) {
+        await localFile.delete();
+      }
+    }
   }
 
   Future<void> createDirIfNotExists(String path) async {
@@ -255,38 +339,12 @@ class SSHService {
     }
   }
 
-  Future<void> disconnect() async {
-    _isIntentionalDisconnect = true;
-    _keepAliveTimer?.cancel();
-    // Kill the agent before disconnecting
-    if (client != null && !client!.isClosed) {
-      final remotePath = '.syne_metrics${osType == "windows" ? ".exe" : ""}';
-      try {
-        if (osType == "windows") {
-          await client!.execute("taskkill /F /IM $remotePath");
-        } else {
-          await client!.execute("pkill -f $remotePath");
-        }
-      } catch (_) {
-        // Ignore errors during disconnect cleanup
-      }
-    }
-
-    try {
-      client?.close();
-    } catch (_) {
-      // Ignore errors
-    }
-    client = null;
-    sftp = null;
-  }
-
   /// Metrics stream controller
   final StreamController<Map<String, dynamic>> _metricsController = StreamController.broadcast();
   Stream<Map<String, dynamic>> get metricsStream => _metricsController.stream;
   SSHSession? _metricsSession;
 
-  /// Deploys the cross-platform Rust binary and starts the MessagePack stream
+  /// Deploy & start the `MessagePack` stream
   Future<void> startMetricsStream({void Function(String step, double progress)? onProgress}) async {
     if (!isConnected) return;
 		// Stream already running
@@ -300,9 +358,8 @@ class SSHService {
       String binaryExtension = "";
 
       // Avoids shell-specific chained commands, like ';' vs '&'
-      final osSession = await client!.execute("uname -s");
-      final osOutput = await osSession.stdout.cast<List<int>>().transform(utf8.decoder).join();
-      final osName = osOutput.trim().toLowerCase();
+      final osSession = await runCommand("uname -s");
+      final osName = osSession.trim().toLowerCase();
 
       if (osName.contains("linux")) {
         detectedOs = "linux";
@@ -319,10 +376,8 @@ class SSHService {
         // Windows CMD uses %PROCESSOR_ARCHITECTURE%,
         // PowerShell uses $env:PROCESSOR_ARCHITECTURE
         // Sending a generic check that usually captures AMD64 or ARM64
-        final archSession = await client!.execute("echo %PROCESSOR_ARCHITECTURE%");
-        final archOut = await archSession.stdout.cast<List<int>>().transform(utf8.decoder).join();
-
-        archString = archOut.toLowerCase().contains("arm") ? "aarch64" : "x86_64";
+        final archSession = await runCommand("powershell -Command \"\$env:PROCESSOR_ARCHITECTURE\"");
+        archString = archSession.toLowerCase().contains("arm") ? "aarch64" : "x86_64";
       }
 
       osType = detectedOs;
@@ -342,7 +397,7 @@ class SSHService {
         final binaryData = await rootBundle.load(assetPath);
         binaryBytes = binaryData.buffer.asUint8List();
       } catch (e) {
-        throw Exception("Unsupported remote server: $detectedOs-$archString");
+        throw Exception("Unsupported server type: $detectedOs-$archString");
       }
 
       bool needsUpload = true;
@@ -352,11 +407,12 @@ class SSHService {
 
         onProgress?.call("Checking metrics version...", 0.4);
 
+				// Don't need exit code here
 				if (detectedOs != "windows") {
-          await runCommand("pkill -f $remotePath");
-          await runCommand("chmod +x $remotePath");
+          await client!.execute("pkill -f $remotePath");
+          await client!.execute("chmod +x $remotePath");
         } else {
-          await runCommand("taskkill /F /IM $remotePath");
+          await client!.execute("taskkill /F /IM $remotePath");
         }
 
         final execVersionCmd = detectedOs == "windows" ? ".\\$remotePath --version" : "./$remotePath --version";
@@ -371,11 +427,14 @@ class SSHService {
 
       onProgress?.call("Cleaning previous sessions...", 0.4);
       // If Linux is currently executing the binary, sftp will throw a `file busy` error
+			// Don't need exit code here
       if (detectedOs != "windows") {
-        await runCommand("pkill -f $remotePath");
+        await client!.execute("pkill -9 -f $remotePath");
       } else {
-        await runCommand("taskkill /F /IM $remotePath");
+        await client!.execute("taskkill /F /IM $remotePath");
       }
+
+			await Future.delayed(const Duration(milliseconds: 500));
 
       if (needsUpload) {
         onProgress?.call("Deploying metrics agent...", 0.7);
@@ -462,7 +521,7 @@ class SSHService {
       });
 
     } catch (e) {
-      throw Exception("Metrics Agent Deployment Failed: $e");
+      throw "Metrics agent deployment failed: $e";
     }
   }
 }

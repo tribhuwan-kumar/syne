@@ -40,8 +40,8 @@ class _TerminalScreenState extends State<TerminalScreen> {
     final client = widget.ssh.client;
     if (client == null) return;
 
-    final session = await client.shell(
-      pty: SSHPtyConfig(width: 90, height: 30),
+		final session = await client.shell(
+      pty: SSHPtyConfig(width: terminal.viewWidth, height: terminal.viewHeight),
     );
 
     if (!mounted) return;
@@ -55,6 +55,11 @@ class _TerminalScreenState extends State<TerminalScreen> {
     session.stderr.cast<List<int>>().transform(utf8.decoder).listen((data) {
       terminal.write(data);
     });
+
+		terminal.onResize = (width, height, pixelWidth, pixelHeight) {
+      // Send the new dimensions to the remote PTY
+      session.resizeTerminal(width, height, pixelWidth, pixelHeight);
+    };
 
     // Read from Terminal -> Intercept Modifiers -> Write to SSH
     terminal.onOutput = (String data) {
@@ -77,10 +82,10 @@ class _TerminalScreenState extends State<TerminalScreen> {
             // Ctrl + [ -> Escape
             charCode = 27;
           } else if (charCode == 99) {
-            // Ctrl + C 
+            // Ctrl + C
             charCode = 3;
           }
-          
+
           bytes = [charCode];
           setState(() => _isCtrlActive = false);
         } else if (_isAltActive) {
@@ -141,7 +146,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
                   children: [
                     _buildTextButton("ESC", () => _sendExtraKey(TerminalKey.escape)),
                     _buildTextButton("TAB", () => _sendExtraKey(TerminalKey.tab)),
-                    
+
                     _buildTextButton(
                       "CTRL",
                       () => setState(() => _isCtrlActive = !_isCtrlActive),
@@ -152,9 +157,9 @@ class _TerminalScreenState extends State<TerminalScreen> {
                       () => setState(() => _isAltActive = !_isAltActive),
                       isActive: _isAltActive,
                     ),
-                    
+
                     const SizedBox(width: 12),
-                    
+
                     _buildIconButton(Icons.arrow_upward_rounded, () => _sendExtraKey(TerminalKey.arrowUp)),
                     _buildIconButton(Icons.arrow_downward_rounded, () => _sendExtraKey(TerminalKey.arrowDown)),
                     _buildIconButton(Icons.arrow_back_rounded, () => _sendExtraKey(TerminalKey.arrowLeft)),

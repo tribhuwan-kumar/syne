@@ -169,7 +169,7 @@ class _ProfilePageState extends State<ProfilePage> {
 										// Fallback handle if it fails to open
 										if (mounted) {
 											ScaffoldMessenger.of(context).showSnackBar(
-											const SnackBar(content: Text('Could not open GitHub link')),
+											const SnackBar(content: Text('Could not open gitHub link')),
 										);
 										}
 									}

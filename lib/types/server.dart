@@ -1,10 +1,11 @@
 class Server {
   final String id;
   final int port;
-  final String name;
+  final String name;        // Hostname
   final String host;				// Server's ip
-  final String username;		// Hostname
+  final String username;
   final String password;
+	final String defaultPath; // PWD
 
   Server({
     required this.id,
@@ -13,6 +14,7 @@ class Server {
     required this.host,
     required this.username,
     required this.password,
+		required this.defaultPath,
   });
 
   Map<String, dynamic> toJson() {
@@ -22,6 +24,7 @@ class Server {
       "name": name,
       "host": host,
       "username": username,
+			"defaultPath": defaultPath,
     };
   }
 
@@ -32,6 +35,7 @@ class Server {
       name: json["name"],
       host: json["host"],
       username: json["username"],
+			defaultPath: json["defaultPath"],
       password: password,
     );
   }

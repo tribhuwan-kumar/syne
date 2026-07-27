@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
-import 'package:flutter/material.dart';
 
+import 'package:flutter/material.dart';
+import 'package:syne/screens/app_dialog.dart';
 import 'package:syne/service/ssh_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class SystemUpdatesPage extends StatefulWidget {
   final SSHService ssh;
@@ -90,9 +92,9 @@ class _SystemUpdatesPage extends State<SystemUpdatesPage> {
     },
     // macOS and Windows do not require sudo for their sync operations
     "macOS": {
-      "sync": "brew update",
-      "list": "brew outdated",
-      "upgrade": "brew upgrade",
+      "sync": "export PATH=/opt/homebrew/bin:/usr/local/bin:\$PATH && brew update",
+      "list": "export PATH=/opt/homebrew/bin:/usr/local/bin:\$PATH && brew outdated --json",
+      "upgrade": "export PATH=/opt/homebrew/bin:/usr/local/bin:\$PATH && brew upgrade",
     },
     "Windows": {
       "sync": "winget source update",
@@ -186,20 +188,35 @@ class _SystemUpdatesPage extends State<SystemUpdatesPage> {
               .transform(utf8.decoder)
               .join();
           if (stderr.toLowerCase().contains("incorrect password")) {
-            throw "Authentication failed: Incorrect sudo password.";
+            if (!mounted) return;
+            AppDialog.show(
+              type: DialogType.error,
+              context: context,
+              title: "Authentication failed",
+              message: "Incorrect sudo password.",
+              actions: [AppDialog.action("OK", () => Navigator.pop(context))],
+            );
+            throw "Failed to fetch updates";
           }
           await session.stdout.cast<List<int>>().transform(utf8.decoder).join();
         } else {
-          await widget.ssh.runCommand(syncCmd);
+          // Sync
+          try {
+            await widget.ssh.runCommand(syncCmd);
+          } on Exception catch (e) {
+            throw e.toString().replaceAll("Exception: ", "");
+          }
         }
         needsSync = false; // Successfully synced
       }
-
-      // Fetch List
-      final cmd = pmConfig[osType]!['list']!;
-      final rawOutput = await widget.ssh.runCommand(cmd);
-      // Parse Output
-      _parseUpdates(rawOutput);
+      // Fetch List, parse Output
+      try {
+        final cmd = pmConfig[osType]!['list']!;
+        final rawOutput = await widget.ssh.runCommand(cmd);
+        _parseUpdates(rawOutput);
+      } on Exception catch (e) {
+        throw e.toString().replaceAll("Exception: ", "");
+      }
     } catch (e) {
       setState(() {
         error = e.toString();
@@ -210,97 +227,147 @@ class _SystemUpdatesPage extends State<SystemUpdatesPage> {
 
   void _parseUpdates(String raw) {
     List<Map<String, String>> parsedList = [];
-    final lines = raw
-        .split("\n")
-        .where((line) => line.trim().isNotEmpty)
-        .toList();
 
-    for (var line in lines) {
-      try {
-        if (["Arch Linux", "Manjaro", "EndeavourOS"].contains(osType)) {
-          final parts = line.split(RegExp(r'\s+'));
-          if (parts.length >= 4) {
-            parsedList.add({
-              'name': parts[0],
-              'current': parts[1],
-              'latest': parts[3],
-            });
-          }
-        } else if ([
-          "Debian/Ubuntu",
-          "Linux Mint",
-          "Pop!_OS",
-        ].contains(osType)) {
-          if (line.startsWith("Listing")) continue;
-          final parts = line.split(RegExp(r'\s+'));
-          final name = parts[0].split('/')[0];
-          final latest = parts[1];
-          final current = line.contains("upgradable from:")
-              ? line.split("upgradable from:")[1].replaceAll("]", "").trim()
-              : "--";
-          parsedList.add({'name': name, 'current': current, 'latest': latest});
-        } else if (["Fedora", "Red Hat"].contains(osType)) {
-          if (line.startsWith("Last metadata")) continue;
-          final parts = line.split(RegExp(r'\s+'));
-          if (parts.length >= 3) {
-            parsedList.add({
-              'name': parts[0].split('.')[0],
-              'current': "--",
-              'latest': parts[1],
-            });
-          }
-        } else if (["Alpine Linux", "postmarketOS"].contains(osType)) {
-          // Format: pkgname-1.0-r0 < 1.1-r0
-          final parts = line.split(" < ");
-          if (parts.length == 2) {
-            final latest = parts[1].trim();
-            final currentStr = parts[0].trim();
-            // Extract package name from the trailing version string
-            final match = RegExp(r'^(.+)-([0-9].*)$').firstMatch(currentStr);
-            final name = match != null ? match.group(1)! : currentStr;
-            final current = match != null ? match.group(2)! : "--";
+    try {
+      if (osType == "macOS") {
+        final Map<String, dynamic> decodedData = jsonDecode(raw);
+        final formulae = decodedData['formulae'] as List<dynamic>? ?? [];
+        final casks = decodedData['casks'] as List<dynamic>? ?? [];
 
+        void parseItems(List<dynamic> items) {
+          for (var item in items) {
+            final name = item['name']?.toString() ?? '--';
+            final currentVersions =
+                item['installed_versions'] as List<dynamic>?;
+            final current =
+                (currentVersions != null && currentVersions.isNotEmpty)
+                ? currentVersions.last.toString()
+                : '--';
+            final latest = item['current_version']?.toString() ?? '--';
             parsedList.add({
               'name': name,
               'current': current,
               'latest': latest,
             });
           }
-        } else if (osType == "openSUSE") {
-          // Format: v | repo | pkg_name | current_ver | latest_ver | arch
-          final parts = line.split('|').map((e) => e.trim()).toList();
-          if (parts.length >= 5 &&
-              parts[2] != "Name" &&
-              !line.startsWith("Repository")) {
-            parsedList.add({
-              'name': parts[2],
-              'current': parts[3],
-              'latest': parts[4],
-            });
-          }
-        } else if (osType == "macOS") {
-          final parts = line.split(RegExp(r'\s+'));
-          parsedList.add({
-            'name': parts[0],
-            'current': parts.length > 1
-                ? parts[1].replaceAll(RegExp(r'[\(\)]'), '')
-                : "--",
-            'latest': parts.length > 3 ? parts[3] : parts.last,
-          });
-        } else if (osType == "Windows") {
-          if (line.contains("---") || line.contains("Name")) continue;
-          final parts = line.split(RegExp(r'\s{2,}'));
-          if (parts.length >= 4) {
-            parsedList.add({
-              'name': parts[1],
-              'current': parts[2],
-              'latest': parts[3],
-            });
+        }
+
+        parseItems(formulae);
+        parseItems(casks);
+      } else {
+        final lines = raw
+            .split("\n")
+            .where((line) => line.trim().isNotEmpty)
+            .toList();
+
+        for (var line in lines) {
+          try {
+            if (["Arch Linux", "Manjaro", "EndeavourOS"].contains(osType)) {
+              final parts = line.split(RegExp(r'\s+'));
+              if (parts.length >= 4) {
+                parsedList.add({
+                  'name': parts[0],
+                  'current': parts[1],
+                  'latest': parts[3],
+                });
+              }
+            } else if (["Debian/Ubuntu", "Linux Mint", "Pop!_OS"].contains(osType)) {
+              if (line.startsWith("Listing")) continue;
+              final parts = line.split(RegExp(r'\s+'));
+              final name = parts[0].split('/')[0];
+              final latest = parts[1];
+              final current = line.contains("upgradable from:")
+                  ? line.split("upgradable from:")[1].replaceAll("]", "").trim()
+                  : "--";
+              parsedList.add({
+                'name': name,
+                'current': current,
+                'latest': latest,
+              });
+            } else if (["Fedora", "Red Hat"].contains(osType)) {
+              if (line.startsWith("Last metadata")) continue;
+              final parts = line.split(RegExp(r'\s+'));
+              if (parts.length >= 3) {
+                parsedList.add({
+                  'name': parts[0].split('.')[0],
+                  'current': "--",
+                  'latest': parts[1],
+                });
+              }
+            } else if (["Alpine Linux", "postmarketOS"].contains(osType)) {
+              final parts = line.split(" < ");
+              if (parts.length == 2) {
+                final latest = parts[1].trim();
+                final currentStr = parts[0].trim();
+                final match = RegExp(
+                  r'^(.+)-([0-9].*)$',
+                ).firstMatch(currentStr);
+                final name = match != null ? match.group(1)! : currentStr;
+                final current = match != null ? match.group(2)! : "--";
+                parsedList.add({
+                  'name': name,
+                  'current': current,
+                  'latest': latest,
+                });
+              }
+            } else if (osType == "openSUSE") {
+              final parts = line.split('|').map((e) => e.trim()).toList();
+              if (parts.length >= 5 &&
+                  parts[2] != "Name" &&
+                  !line.startsWith("Repository")) {
+                parsedList.add({
+                  'name': parts[2],
+                  'current': parts[3],
+                  'latest': parts[4],
+                });
+              }
+            } else if (osType == "Windows") {
+              if (line.contains("---") || line.contains("Name")) continue;
+              final parts = line.split(RegExp(r'\s{2,}'));
+              if (parts.length >= 4) {
+                parsedList.add({
+                  'name': parts[1],
+                  'current': parts[2],
+                  'latest': parts[3],
+                });
+              }
+            }
+          } catch (e) {
+						throw "Malformed lines: $e";
           }
         }
-      } catch (_) {
-        // Skip malformed lines silently
       }
+    } catch (e) {
+			if (!mounted) return;
+      final errorString = e.toString().replaceAll("Exception: ", "");
+			AppDialog.show(
+				type: DialogType.error,
+				context: context,
+				title: "Parsing error:",
+        message: errorString,
+				actions: [
+					AppDialog.action("OK", () => Navigator.pop(context)),
+					AppDialog.action("Report on github", () async {
+						final Uri url = Uri.parse('https://github.com/tribhuwan-kumar/syne/issues/new').replace(
+              queryParameters: {
+                'title': 'Parsing error: ${errorString.split('\n').first}',
+                'body': '### Error details\n```\n$errorString\n```\n\n### Environment\n- Server: ${widget.ssh.osType.toString()}',
+              },
+            );
+						if (await canLaunchUrl(url)) {
+							await launchUrl(url, mode: LaunchMode.externalApplication);
+						} else {
+								// Fallback handle if it fails to open
+								if (mounted) {
+									ScaffoldMessenger.of(context).showSnackBar(
+											const SnackBar(content: Text('Could not open gitHub link')),
+									);
+								}
+							}
+						},
+					)
+				],
+			);
     }
 
     final validPackageNames = parsedList.map((e) => e['name']!).toSet();
@@ -544,16 +611,23 @@ class _SystemUpdatesPage extends State<SystemUpdatesPage> {
         session.stdin.add(Uint8List.fromList(utf8.encode("$password\n")));
         await session.stdin.close();
 
-        commandOutput = await session.stdout.cast<List<int>>().transform(utf8.decoder).join();
+        commandOutput = await session.stdout
+            .cast<List<int>>()
+            .transform(utf8.decoder)
+            .join();
 
-        final errorOutput = await session.stderr.cast<List<int>>().transform(utf8.decoder).join();
+        final errorOutput = await session.stderr
+            .cast<List<int>>()
+            .transform(utf8.decoder)
+            .join();
 
         if (errorOutput.toLowerCase().contains("incorrect password") ||
             errorOutput.toLowerCase().contains("try again")) {
           throw "Authentication failed: Incorrect sudo password.";
         }
 
-        if (errorOutput.trim().isNotEmpty && !errorOutput.toLowerCase().contains("warning")) {
+        if (errorOutput.trim().isNotEmpty &&
+            !errorOutput.toLowerCase().contains("warning")) {
           commandOutput += "\n$errorOutput";
         }
       } else {
@@ -646,6 +720,11 @@ class _SystemUpdatesPage extends State<SystemUpdatesPage> {
     );
   }
 
+  String _truncateVersion(String version, {int maxLength = 24}) {
+    if (version.length <= maxLength) return version;
+    return '${version.substring(0, maxLength)}…';
+  }
+
   Widget updatesList() {
     if (isLoading) {
       return const Expanded(
@@ -716,59 +795,81 @@ class _SystemUpdatesPage extends State<SystemUpdatesPage> {
           final name = pkg['name']!;
           final isSelected = selectedPackages.contains(name);
 
+          // Truncate versions to safely prevent layout overflows
+          final cleanCurrent = _truncateVersion(pkg['current'] ?? '');
+          final cleanLatest = _truncateVersion(pkg['latest'] ?? '');
+
           return Container(
             margin: const EdgeInsets.only(bottom: 12),
             decoration: BoxDecoration(
               color: isSelected
-                  ? Colors.green.withValues(alpha: 0.05)
+                  ? const Color(0xFFA2D9A1).withValues(alpha: 0.15)
                   : const Color(0xFF1C1C1E),
-              borderRadius: BorderRadius.circular(18),
-              border: isSelected
-                  ? Border.all(color: const Color(0xFFA2D9A1), width: 1)
-                  : null,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: isSelected ? const Color(0xFFA2D9A1) : Colors.transparent,
+                width: 1.5,
+              ),
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(18),
-              child: Material(
-                type: MaterialType.transparency,
-                child: CheckboxListTile(
-                  value: isSelected,
-                  activeColor: const Color(0xFFA2D9A1),
-                  checkColor: Colors.black,
-                  onChanged: (_) => toggleSelection(name),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  title: Text(
-                    name,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  subtitle: Text(
-                    "Current: ${pkg['current']}",
-                    style: const TextStyle(color: Colors.white54, fontSize: 12),
-                  ),
-                  secondary: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
+              borderRadius: BorderRadius.circular(14),
+              child: InkWell(
+                onTap: () => toggleSelection(name),
+                splashColor: const Color(0xFFA2D9A1).withValues(alpha: 0.1),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
                     children: [
-                      const Text(
-                        "Latest",
-                        style: TextStyle(
-                          color: Color(0xFFA2D9A1),
-                          fontWeight: FontWeight.w500,
-                          fontSize: 10,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              "Current: $cleanCurrent",
+                              maxLines: 1,
+                              style: const TextStyle(
+                                color: Colors.white54,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      Text(
-                        pkg['latest']!,
-                        style: const TextStyle(
-                          color: Color(0xFFA2D9A1),
-                          fontSize: 12,
-                        ),
+                      const SizedBox(width: 16),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          const Text(
+                            "Latest",
+                            style: TextStyle(
+                              color: Color(0xFFA2D9A1),
+                              fontWeight: FontWeight.w800,
+                              fontSize: 10,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            cleanLatest,
+                            maxLines: 1,
+                            style: const TextStyle(
+                              color: Color(0xFFA2D9A1),
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -806,11 +907,11 @@ class _SystemUpdatesPage extends State<SystemUpdatesPage> {
               });
             },
           ),
-					IconButton(
-						icon: const Icon(Icons.sync),
-						tooltip: "Sync database",
-						onPressed: () => fetchUpdates(forceSync: true),
-					),
+          IconButton(
+            icon: const Icon(Icons.sync),
+            tooltip: "Sync database",
+            onPressed: () => fetchUpdates(forceSync: true),
+          ),
         ],
       ),
       body: Column(children: [summaryCard(), updatesList()]),

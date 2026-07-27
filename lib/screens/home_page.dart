@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-
+import 'package:syne/types/server.dart';
 import 'package:syne/service/ssh_service.dart';
 import 'package:syne/screens/profile_page.dart';
 import 'package:syne/screens/network_page.dart';
@@ -14,8 +14,9 @@ import 'package:syne/screens/system_updates_page.dart';
 
 class HomePage extends StatefulWidget {
   final SSHService ssh;
+	final Server server;
 
-  const HomePage({super.key, required this.ssh});
+  const HomePage({super.key, required this.ssh, required this.server,});
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -97,7 +98,7 @@ class _HomePageState extends State<HomePage> {
             children: [
               Icon(Icons.wifi_off_rounded, color: Colors.redAccent),
               SizedBox(width: 10),
-              Text("Connection Lost", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              Text("Connection lost", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
             ],
           ),
           content: const Text(
@@ -128,6 +129,12 @@ class _HomePageState extends State<HomePage> {
       },
     );
   }
+
+  Future<void> refresh() async {
+		await widget.ssh.reconnect();
+		await widget.ssh.startMetricsStream();
+		await setupMetricsStream();
+	}
 
   /// Listens to the high-performance MessagePack Rust stream
   Future<void> setupMetricsStream() async {
@@ -551,11 +558,10 @@ class _HomePageState extends State<HomePage> {
 
                   const SizedBox(height: 10),
 
-                  // Bottom Row: Real-time download/upload speeds spanning full width
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Download Speed Component
+                      // Download speed component
                       Row(
                         children: [
                           const Icon(Icons.arrow_downward_rounded, color: Colors.greenAccent, size: 16),
@@ -564,7 +570,7 @@ class _HomePageState extends State<HomePage> {
                             iface['download_speed'] ?? "0 B/s",
                             style: const TextStyle(
                               color: Colors.white,
-                              fontFamily: 'monospace',
+                              fontFamily: 'normal',
                               fontWeight: FontWeight.w500,
                               fontSize: 12,
                             ),
@@ -572,7 +578,7 @@ class _HomePageState extends State<HomePage> {
                         ],
                       ),
 
-                      // Upload Speed Component
+                      // Upload speed component
                       Row(
                         children: [
                           const Icon(Icons.arrow_upward_rounded, color: Colors.orangeAccent, size: 16),
@@ -581,7 +587,7 @@ class _HomePageState extends State<HomePage> {
                             iface['upload_speed'] ?? "0 B/s",
                             style: const TextStyle(
                               color: Colors.white,
-                              fontFamily: 'monospace',
+                              fontFamily: 'normal',
                               fontWeight: FontWeight.w500,
                               fontSize: 12,
                             ),
@@ -602,7 +608,7 @@ class _HomePageState extends State<HomePage> {
   Widget homePage() {
     return SafeArea(
       child: RefreshIndicator(
-        onRefresh: setupMetricsStream,
+        onRefresh: refresh,
         child: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 18),
           children: [
@@ -614,11 +620,6 @@ class _HomePageState extends State<HomePage> {
               children: [
                 Row(
                   children: [
-                    const CircleAvatar(
-                      radius: 22,
-                      backgroundImage: AssetImage("assets/avatar.png"),
-                    ),
-                    const SizedBox(width: 10),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -696,7 +697,7 @@ class _HomePageState extends State<HomePage> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => FileExplorer(ssh: widget.ssh),
+                        builder: (_) => FileExplorer(ssh: widget.ssh, startingPath: widget.server.defaultPath),
                       ),
                     );
                   },

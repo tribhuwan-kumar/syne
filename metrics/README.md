@@ -20,6 +20,9 @@ Display
 	Get-CimInstance -Namespace root\wmi -ClassName WmiMonitorConnectionParams | Select-Object Active, InstanceName
 	* Macos
 	system_profiler SPDisplaysDataType | grep -E "Display Type|Resolution|Main Display"
+	system_profiler SPDisplaysDataType | grep -q "Resolution:"
+	system_profiler SPAudioDataType | grep -q "Output Channels:"
+
 
 Audio
 	* Linux
@@ -29,8 +32,5 @@ Audio
 	* Macos
 	system_profiler SPAudioDataType | grep -A 3 "Devices:"
 
-
-system_profiler SPDisplaysDataType | grep -q "Resolution:"
-system_profiler SPAudioDataType | grep -q "Output Channels:"
 
 

@@ -37,16 +37,16 @@ class _LoginPageState extends State<LoginPage> {
     FocusScope.of(context).unfocus(); // Dismiss keyboard
 
     final input = serverAddress.text.trim();
-    String hostValue = input;
+    String ipValue = input;
     int portValue = 22;
 
     if (input.contains(':')) {
       final parts = input.split(':');
-      hostValue = parts[0].trim();
+      ipValue = parts[0].trim();
       portValue = int.tryParse(parts[1].trim()) ?? 22;
     }
 
-    if (hostValue.isEmpty || user.text.isEmpty || pass.text.isEmpty) {
+    if (ipValue.isEmpty || user.text.isEmpty || pass.text.isEmpty) {
       AppDialog.show(
         type: DialogType.warning,
         context: context,
@@ -57,30 +57,55 @@ class _LoginPageState extends State<LoginPage> {
       return;
     }
 
-    // Initialize Progress Trackers
+    // Initialize progress trackers
     final statusNotifier = ValueNotifier<String>("Authenticating with server...");
     final progressNotifier = ValueNotifier<double>(0.05);
 
-    // Show the Loading Dialog (We don't await this, it runs in the foreground)
+    // Show the loading dialog,
+		// Don't need to await this, it runs in the foreground
     AppDialog.show(
       context: context,
       title: "Connecting...",
       type: DialogType.loading,
       dynamicMessage: statusNotifier,
       progressNotifier: progressNotifier,
-      barrierDismissible: false, // Prevent user from tapping out
+      barrierDismissible: false,					// Prevent user from tapping out
     );
 
     try {
       // Establish ssh connection
-      await ssh.connect(hostValue, portValue, user.text, pass.text);
+      await ssh.connect(ipValue, portValue, user.text, pass.text);
 
-			String fetchedHostname = hostValue;
+			String fetchedHostname = ipValue;
+			String fetchedHomeDir = "/home";
+
 			try {
         fetchedHostname = (await ssh.runCommand("hostname")).trim();
-        if (fetchedHostname.isEmpty) fetchedHostname = hostValue;
+        if (fetchedHostname.isEmpty) fetchedHostname = ipValue;
+
+        final baseOs = ssh.osType.toLowerCase();
+        if (baseOs == "windows") {
+          // Grab the `USERPROFILE` environment variable
+          final winPath = (await ssh.runCommand("echo %USERPROFILE%")).trim();
+          if (winPath.isNotEmpty && winPath.contains(":\\")) {
+            fetchedHomeDir = winPath.replaceAll("\\", "/");
+          } else {
+            fetchedHomeDir = "C:/";
+          }
+        } else {
+          final isRoot = user.text.trim() == "root";
+          if (isRoot) {
+            fetchedHomeDir = "/";
+          } else {
+            // For normal unix users, ask the system for their exact home dir
+            final unixPath = (await ssh.runCommand("pwd")).trim();
+            if (unixPath.isNotEmpty && unixPath.startsWith("/")) {
+              fetchedHomeDir = unixPath;
+            }
+          }
+        }
       } catch (_) {
-        // Ignore errors
+        // If anything fails, fall back to "/home"
       }
       // Deploy agent and update progress
       await ssh.startMetricsStream(
@@ -96,20 +121,20 @@ class _LoginPageState extends State<LoginPage> {
 
       String generateId() {
         return DateTime.now().millisecondsSinceEpoch.toString() +
-            Random().nextInt(9999).toString();
+					Random().nextInt(9999).toString();
       }
 
-      // SAVE SERVER AFTER SUCCESSFUL LOGIN
-      await storage.saveServer(
-        Server(
-          id: generateId(),
-          name: fetchedHostname,
-          host: hostValue,
-          port: portValue,
-          username: user.text,
-          password: pass.text,
-        ),
+      // Save server after successful login
+			final activeServer = Server(
+        id: generateId(),
+        name: fetchedHostname,
+        host: ipValue,
+        port: portValue,
+        username: user.text,
+        password: pass.text,
+        defaultPath: fetchedHomeDir,
       );
+			await storage.saveServer(activeServer);
 
       if (!mounted) return;
 
@@ -119,7 +144,7 @@ class _LoginPageState extends State<LoginPage> {
       // Navigate to Home
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => HomePage(ssh: ssh)),
+        MaterialPageRoute(builder: (_) => HomePage(ssh: ssh, server: activeServer)),
       );
 
     } catch (e) {
@@ -133,7 +158,7 @@ class _LoginPageState extends State<LoginPage> {
       AppDialog.show(
         type: DialogType.error,
         context: context,
-        title: "Connection Failed",
+        title: "Connection failed",
         message: e.toString().replaceAll("Exception: ", ""),
         actions: [
           AppDialog.action(

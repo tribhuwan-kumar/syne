@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:syne/service/ssh_service.dart';
 import 'package:sleek_circular_slider/sleek_circular_slider.dart';
 
-import 'package:syne/service/ssh_service.dart';
-
+// very beta version
 class ControlPanel extends StatefulWidget {
   final SSHService ssh;
 
@@ -13,75 +13,200 @@ class ControlPanel extends StatefulWidget {
 }
 
 class _ControlPanelState extends State<ControlPanel> {
+  bool isLoading = true;
+
+  // Hardware Capabilities
+  bool hasDisplay = false;
+  bool hasAudio = false;
+
+  // States
   double volume = 0;
   double brightness = 0;
   bool isMuted = false;
-  int loginSession = 0;
+
+  String get os => widget.ssh.osType.toLowerCase();
 
   @override
   void initState() {
     super.initState();
-    fetchInitialValues();
+    _initializePanel();
   }
 
-  Future<void> run(String cmd) async {
-    await widget.ssh.run(cmd);
+  Future<void> _initializePanel() async {
+    setState(() => isLoading = true);
+    await _detectHardware();
+    if (hasAudio || hasDisplay) {
+      await _fetchMediaValues();
+    }
+    if (mounted) {
+      setState(() => isLoading = false);
+    }
   }
 
-  Future<void> fetchInitialValues() async {
-    /// GET VOLUME
-    String volOutput = await widget.ssh.run(
-      "pactl get-sink-volume @DEFAULT_SINK@",
-    );
-
-    /// GET MUTE STATUS
-    String muteOutput = await widget.ssh.run(
-      "pactl get-sink-mute @DEFAULT_SINK@",
-    );
-
-    /// GET BRIGHTNESS
-    String brightnessOutput = await widget.ssh.run("brightnessctl -m");
-
-    /// PARSE VOLUME
-    double vol = double.parse(
-      volOutput.split("/")[1].trim().replaceAll("%", ""),
-    );
-
-    /// PARSE MUTE
-    bool muted = muteOutput.contains("yes");
-
-    /// PARSE BRIGHTNESS
-    double bright = double.parse(
-      brightnessOutput.split(",")[3].replaceAll("%", ""),
-    );
-
-    /// GET LOGIN SESSION (SAFER)
-    String loginctlRaw = await widget.ssh.run(
-      "loginctl | grep tty | awk '{print \$1}'",
-    );
-
-    int loginctlOutput = int.tryParse(loginctlRaw.trim()) ?? 0;
-
-    setState(() {
-      volume = vol;
-      brightness = bright;
-      isMuted = muted;
-      loginSession = loginctlOutput;
-    });
+  Future<String> run(String cmd) async {
+    try {
+      return await widget.ssh.run(cmd);
+    } catch (e) {
+      debugPrint("Command failed: $cmd\nError: $e");
+      return "";
+    }
   }
 
-  Future<void> sudoCommand(String command) async {
+  Future<void> _detectHardware() async {
+    String displayCmd = "";
+    String audioCmd = "";
+
+    if (os == "windows") {
+      displayCmd = "powershell -Command \"if(Get-CimInstance -Namespace root\\wmi -ClassName WmiMonitorConnectionParams -ErrorAction SilentlyContinue){echo 'true'}else{echo 'false'}\"";
+      audioCmd = "powershell -Command \"if(Get-CimInstance Win32_SoundDevice -ErrorAction SilentlyContinue){echo 'true'}else{echo 'false'}\"";
+    } else if (os == "macos") {
+      displayCmd = "system_profiler SPDisplaysDataType | grep -q 'Resolution:' && echo 'true' || echo 'false'";
+      audioCmd = "system_profiler SPAudioDataType | grep -q 'Devices:' && echo 'true' || echo 'false'";
+    } else {
+      // Linux
+      displayCmd = "ls /sys/class/drm/card*-*/status 2>/dev/null | xargs grep -l '^connected' >/dev/null 2>&1 && echo 'true' || echo 'false'";
+      audioCmd = "ls -d /sys/class/sound/card* >/dev/null 2>&1 && echo 'true' || echo 'false'";
+    }
+
+    final d = await run(displayCmd);
+    final a = await run(audioCmd);
+
+    hasDisplay = d.trim() == 'true';
+    hasAudio = a.trim() == 'true';
+  }
+
+  Future<void> _fetchMediaValues() async {
+    if (hasAudio) {
+      if (os == "linux") {
+        String volOutput = await run("pactl get-sink-volume @DEFAULT_SINK@ || wpctl get-volume @DEFAULT_AUDIO_SINK@ || amixer sget Master");
+        String muteOutput = await run("pactl get-sink-mute @DEFAULT_SINK@ || wpctl get-volume @DEFAULT_AUDIO_SINK@ || amixer sget Master");
+
+        if (volOutput.contains("%")) {
+          try {
+            final match = RegExp(r'(\d+)%').firstMatch(volOutput);
+            if (match != null) volume = double.parse(match.group(1)!);
+          } catch (_) {}
+        } else if (volOutput.contains("Volume:")) {
+           try {
+            final match = RegExp(r'Volume:\s*([0-9.]+)').firstMatch(volOutput);
+            if (match != null) volume = double.parse(match.group(1)!) * 100;
+          } catch (_) {}
+        }
+        isMuted = muteOutput.contains("yes") || muteOutput.contains("[off]") || muteOutput.contains("[MUTED]");
+      }
+      else if (os == "macos") {
+        String volOutput = await run("osascript -e 'output volume of (get volume settings)'");
+        String muteOutput = await run("osascript -e 'output muted of (get volume settings)'");
+        volume = double.tryParse(volOutput.trim()) ?? 0;
+        isMuted = muteOutput.trim() == "true";
+      }
+    }
+
+    if (hasDisplay) {
+      if (os == "linux") {
+        String brightOutput = await run("brightnessctl -m");
+        if (brightOutput.isNotEmpty) {
+          try {
+            brightness = double.parse(brightOutput.split(",")[3].replaceAll("%", ""));
+          } catch (_) {}
+        }
+      }
+    }
+  }
+
+  Future<void> _executeSystemAction(String actionName) async {
+    String cmd = "";
+    bool requiresSudo = false;
+
+    switch (actionName) {
+      case "Lock":
+        if (os == "windows") {
+          cmd = "rundll32.exe user32.dll,LockWorkStation";
+        } else if (os == "macos") {
+				 cmd = "pmset displaysleepnow"; // Best standard CLI lock equivalent
+				}
+        else if (os == "linux") {
+					debugPrint("LOCKING");
+					cmd = "loginctl lock-session || xdg-screensaver lock || gnome-screensaver-command -l";
+				}
+        break;
+
+      case "Shutdown":
+        requiresSudo = (os != "windows");
+        if (os == "windows") {
+          cmd = "shutdown /s /t 0";
+        } else {
+          cmd = "shutdown -h now || systemctl poweroff";
+        }
+        break;
+
+      case "Restart":
+        requiresSudo = (os != "windows");
+        if (os == "windows") {
+          cmd = "shutdown /r /t 0";
+        } else {
+          cmd = "shutdown -r now || systemctl reboot";
+        }
+        break;
+
+      case "Sleep":
+        if (os == "windows") {
+          cmd = "rundll32.exe powrprof.dll,SetSuspendState 0,1,0";
+        } else if (os == "macos") {
+					cmd = "pmset sleepnow";
+				}
+        else {
+					cmd = "systemctl suspend";
+				}
+        break;
+
+      case "Hibernate":
+        if (os == "windows") {
+          cmd = "shutdown /h";
+        } else if (os == "linux") {
+          cmd = "systemctl hibernate";
+          requiresSudo = true;
+        }
+        // macOS doesn't have a simple, standard hibernation CLI toggle
+        break;
+
+      case "Mute":
+        if (os == "windows") {
+          cmd = "powershell -Command \"(New-Object -ComObject WScript.Shell).SendKeys([char]173)\"";
+        } else if (os == "macos") {
+          cmd = isMuted ? "osascript -e 'set volume output muted false'" : "osascript -e 'set volume output muted true'";
+        } else {
+          cmd = "pactl set-sink-mute @DEFAULT_SINK@ toggle || wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle || amixer set Master toggle";
+        }
+        break;
+    }
+
+    if (cmd.isEmpty) return;
+
+    if (requiresSudo) {
+      _showSudoDialog(cmd);
+    } else {
+      await widget.ssh.runCommand(cmd);
+      if (actionName == "Mute") {
+        await Future.delayed(const Duration(milliseconds: 200)); // Allow OS to register change
+        _initializePanel();
+      }
+    }
+  }
+
+  void _showSudoDialog(String command) {
     TextEditingController passController = TextEditingController();
 
-    await showDialog(
+    showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: Colors.black,
-          title: const Text(
-            "Enter Sudo Password",
-            style: TextStyle(color: Colors.white),
-          ),
+          backgroundColor: const Color(0xFF1C1C1E),
+          title: const Text("Enter sudo password",
+						style: TextStyle(
+							color: Colors.white,
+							fontSize: 20, fontWeight: FontWeight.bold
+						)),
           content: TextField(
             controller: passController,
             obscureText: true,
@@ -89,22 +214,20 @@ class _ControlPanelState extends State<ControlPanel> {
             decoration: const InputDecoration(
               hintText: "Password",
               hintStyle: TextStyle(color: Colors.grey),
+              focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFA2D9A1))),
             ),
           ),
           actions: [
             TextButton(
-              child: const Text("Cancel"),
-              onPressed: () {
-                Navigator.pop(context);
-              },
+              child: const Text("Cancel", style: TextStyle(color: Colors.white54)),
+              onPressed: () => Navigator.pop(context),
             ),
             ElevatedButton(
-              child: const Text("Run"),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFA2D9A1)),
+              child: const Text("Run", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
               onPressed: () async {
                 String pass = passController.text;
-
                 Navigator.pop(context);
-
                 await run("echo '$pass' | sudo -S $command");
               },
             ),
@@ -117,18 +240,26 @@ class _ControlPanelState extends State<ControlPanel> {
   Widget actionButton({
     required IconData icon,
     required String label,
-    required VoidCallback onTap,
-    Color? backgroundColor,
+    required VoidCallback? onTap,
   }) {
+    final isEnabled = onTap != null;
     return Column(
       children: [
         FloatingActionButton(
-          onPressed: null, // Disabled click event logic
-          backgroundColor: Colors.grey.shade800, // Grayed out container style
-          child: Icon(icon, color: Colors.grey.shade500),
+          heroTag: label,
+          onPressed: onTap,
+          backgroundColor: isEnabled ? const Color(0xFF2C2C2E) : Colors.grey.shade900,
+          elevation: isEnabled ? 4 : 0,
+          child: Icon(icon, color: isEnabled ? const Color(0xFFA2D9A1) : Colors.grey.shade700),
         ),
         const SizedBox(height: 8),
-        Text(label, style: TextStyle(color: Colors.grey.shade500)),
+        Text(
+          label,
+          style: TextStyle(
+            color: isEnabled ? Colors.white70 : Colors.grey.shade700,
+            fontSize: 12,
+          ),
+        ),
       ],
     );
   }
@@ -137,61 +268,74 @@ class _ControlPanelState extends State<ControlPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          "Brightness",
-          style: TextStyle(color: Colors.grey.shade500, fontSize: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text("Brightness", style: TextStyle(color: Colors.grey.shade400, fontSize: 16)),
+            Text("${brightness.round()}%", style: const TextStyle(color: Color(0xFFA2D9A1), fontSize: 16)),
+          ],
         ),
         Slider(
           value: brightness,
           min: 0,
           max: 100,
-          activeColor: Colors.grey.shade800, // Grayed out track interface
+          activeColor: const Color(0xFFA2D9A1),
           inactiveColor: Colors.grey.shade900,
-          label: brightness.round().toString(),
-          onChanged: null, // Completely disables interactions
-          onChangeEnd: null,
+          // Currently relies on `brightnessctl` which is Linux specific
+          onChanged: hasDisplay && os == "linux" ? (val) => setState(() => brightness = val) : null,
+          onChangeEnd: (val) async {
+            if (hasDisplay && os == "linux") {
+              await run("brightnessctl set ${val.round()}%");
+            }
+          },
         ),
       ],
     );
   }
 
   Widget volumeCircular() {
+    bool canControlVolume = hasAudio && (os == "linux" || os == "macos");
+
     return Column(
       children: [
-        Text(
-          "Volume",
-          style: TextStyle(color: Colors.grey.shade500, fontSize: 18),
-        ),
+        Text("Volume", style: TextStyle(color: Colors.grey.shade400, fontSize: 18)),
         const SizedBox(height: 10),
         SleekCircularSlider(
           min: 0,
           max: 100,
           initialValue: volume,
           appearance: CircularSliderAppearance(
-            size: 250,
+            size: 220,
             customWidths: CustomSliderWidths(
-              progressBarWidth: 15,
-              handlerSize: 0, // Hides interaction handle thumb structure
+              progressBarWidth: 12,
+              handlerSize: canControlVolume ? 10 : 0,
               trackWidth: 10,
             ),
             customColors: CustomSliderColors(
-              progressBarColor: Colors.grey.shade800, // Muted colors
-              trackColor: Colors.grey.shade900,
-              dotColor: Colors.transparent,
+              progressBarColor: hasAudio ? const Color(0xFFA2D9A1) : Colors.grey.shade800,
+              trackColor: const Color(0xFF2C2C2E),
+              dotColor: Colors.white,
               hideShadow: true,
             ),
             infoProperties: InfoProperties(
-              modifier: (double value) {
-                return "${value.round()}%";
-              },
+              modifier: (double value) => "${value.round()}%",
               mainLabelStyle: TextStyle(
-                color: Colors.grey.shade600,
-                fontSize: 28,
+                color: hasAudio ? Colors.white : Colors.grey.shade700,
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ),
-          onChange: null, // Lock inputs from triggering changes
-          onChangeEnd: null,
+          // onChanged: canControlVolume ? (val) => setState(() => volume = val) : null,
+          onChangeEnd: (val) async {
+            if (canControlVolume) {
+              if (os == "linux") {
+                await run("pactl set-sink-volume @DEFAULT_SINK@ ${val.round()}% || wpctl set-volume @DEFAULT_AUDIO_SINK@ ${val / 100} || amixer sset Master ${val.round()}%");
+              } else if (os == "macos") {
+                await run("osascript -e 'set volume output volume ${val.round()}'");
+              }
+            }
+          },
         ),
       ],
     );
@@ -199,97 +343,104 @@ class _ControlPanelState extends State<ControlPanel> {
 
   @override
   Widget build(BuildContext context) {
+    if (isLoading) {
+      return const Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(child: CircularProgressIndicator(color: Color(0xFFA2D9A1))),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
         title: const Text("Control Panel"),
         backgroundColor: Colors.black,
-				centerTitle: true,
+        centerTitle: true,
+        elevation: 0,
       ),
-      body: Stack(
-        children: [
-          /// BACKGROUND (MUTED & IGNORES GESTURES)
-          IgnorePointer(
-            ignoring: true,
-            child: SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  children: [
-                    /// VOLUME CONTROL
-                    volumeCircular(),
-                    const SizedBox(height: 20),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+          child: Column(
+            children: [
+              if (hasAudio) ...[
+                volumeCircular(),
+                const SizedBox(height: 30),
+              ],
 
-                    /// ACTION BUTTONS
-                    Wrap(
-                      spacing: 30,
-                      runSpacing: 30,
-                      children: [
-                        actionButton(
+              // ACTION BUTTONS GRID (Forced 3 per row)
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final double totalSpacing = 25 * 2;
+                  final double itemWidth = (constraints.maxWidth - totalSpacing) / 3;
+
+                  return Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: itemWidth,
+                        child: actionButton(
                           icon: Icons.lock,
                           label: "Lock",
-                          onTap: () {},
+                          onTap: hasDisplay ? () => _executeSystemAction("Lock") : null,
                         ),
-                        actionButton(
-                          icon: Icons.power_settings_new,
-                          label: "Shutdown",
-                          onTap: () {},
-                        ),
-                        actionButton(
+                      ),
+                      SizedBox(
+                        width: itemWidth,
+                        child: actionButton(
                           icon: Icons.restart_alt,
                           label: "Restart",
-                          onTap: () {},
+                          onTap: () => _executeSystemAction("Restart"),
                         ),
-                        actionButton(
+                      ),
+                      SizedBox(
+                        width: itemWidth,
+                        child: actionButton(
+                          icon: Icons.power_settings_new,
+                          label: "Shutdown",
+                          onTap: () => _executeSystemAction("Shutdown"),
+                        ),
+                      ),
+                      SizedBox(
+                        width: itemWidth,
+                        child: actionButton(
                           icon: Icons.bedtime,
-                          label: "Suspend",
-                          onTap: () {},
+                          label: "Sleep",
+                          onTap: () => _executeSystemAction("Sleep"),
                         ),
-                        actionButton(
-                          icon: Icons.volume_off,
-                          label: "Mute",
-                          onTap: () {},
+                      ),
+                      SizedBox(
+                        width: itemWidth,
+                        child: actionButton(
+                          icon: Icons.nightlight_round,
+                          label: "Hibernate",
+                          onTap: os != "macos" ? () => _executeSystemAction("Hibernate") : null,
                         ),
-                        actionButton(
-                          icon: Icons.monitor,
-                          label: "Display Off",
-                          onTap: () {},
+                      ),
+                      SizedBox(
+                        width: itemWidth,
+                        child: actionButton(
+                          icon: isMuted ? Icons.volume_off : Icons.volume_up,
+                          label: isMuted ? "Unmute" : "Mute",
+                          onTap: hasAudio ? () => _executeSystemAction("Mute") : null,
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 40),
+                      ),
+                    ],
+                  );
+                },
+              ),
 
-                    /// BRIGHTNESS CONTROL
-                    brightnessSlider(),
-                  ],
-                ),
-              ),
-            ),
-          ),
+              if (hasDisplay) ...[
+                const SizedBox(height: 40),
+                brightnessSlider(),
+              ],
 
-          /// FOREGROUND OVERLAY "COMING SOON" TEXT
-          Center(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.85),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade800, width: 1),
-              ),
-              child: const Text(
-                "Coming soon!!",
-                style: TextStyle(
-                  color: Color(
-                    0xFFA2D9A1,
-                  ), // Matches original design accent color
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.2,
-                ),
-              ),
-            ),
+              const SizedBox(height: 40),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

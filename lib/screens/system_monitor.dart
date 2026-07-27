@@ -174,7 +174,7 @@ class _SystemMonitorState extends State<SystemMonitor> {
     );
   }
 
-  Widget _buildInfoRow(String label, String value, {bool isMonospace = false}) {
+  Widget _buildInfoRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
@@ -191,7 +191,7 @@ class _SystemMonitorState extends State<SystemMonitor> {
               color: Colors.white,
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              fontFamily: isMonospace ? 'monospace' : null,
+              fontFamily: "normal",
             ),
           ),
         ],
@@ -224,7 +224,7 @@ class _SystemMonitorState extends State<SystemMonitor> {
           const SizedBox(height: 12),
           _buildInfoRow("CPU", cpuModel),
           if (gpuModel.isNotEmpty) _buildInfoRow("GPU", gpuModel),
-          _buildInfoRow("Load Avg", loadAvg, isMonospace: true),
+          _buildInfoRow("Load Avg", loadAvg),
         ],
       ),
     );
@@ -371,7 +371,6 @@ class _SystemMonitorState extends State<SystemMonitor> {
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 13,
-                              fontFamily: 'monospace',
                             ),
                           ),
                         ],
@@ -389,7 +388,6 @@ class _SystemMonitorState extends State<SystemMonitor> {
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 13,
-                              fontFamily: 'monospace',
                             ),
                           ),
                         ],
@@ -446,11 +444,11 @@ class _SystemMonitorState extends State<SystemMonitor> {
             ),
             const SizedBox(height: 12),
             _buildInfoRow("State", batState),
-            _buildInfoRow("Voltage", batV, isMonospace: true),
+            _buildInfoRow("Voltage", batV),
 						if(batW.toLowerCase() != '0.0 w')
-							_buildInfoRow("Wattage", batW, isMonospace: true),
+							_buildInfoRow("Wattage", batW),
 						if(batA.toLowerCase() != '0.0 a')
-							_buildInfoRow("Amperage", batA, isMonospace: true),
+							_buildInfoRow("Amperage", batA),
           ],
         ),
       ),
@@ -484,11 +482,11 @@ class _SystemMonitorState extends State<SystemMonitor> {
             borderRadius: BorderRadius.circular(4),
           ),
           const SizedBox(height: 12),
-          _buildInfoRow("Total", memTotal, isMonospace: true),
-          _buildInfoRow("Used", memUsed, isMonospace: true),
-          _buildInfoRow("Cached", memCached, isMonospace: true),
-          _buildInfoRow("Available", memAvailable, isMonospace: true),
-          _buildInfoRow("Free", memFree, isMonospace: true),
+          _buildInfoRow("Total", memTotal),
+          _buildInfoRow("Used", memUsed),
+          _buildInfoRow("Cached", memCached),
+          _buildInfoRow("Available", memAvailable),
+          _buildInfoRow("Free", memFree),
         ],
       ),
     );
@@ -555,7 +553,6 @@ class _SystemMonitorState extends State<SystemMonitor> {
                                   style: const TextStyle(
                                     color: Colors.white70,
                                     fontSize: 12,
-                                    fontFamily: 'monospace',
                                   ),
                                 ),
                               ],
@@ -625,7 +622,6 @@ class _SystemMonitorState extends State<SystemMonitor> {
                           return _buildInfoRow(
                             "${s['label']}:",
                             "${t.toStringAsFixed(1)}°C",
-                            isMonospace: true,
                           );
                         }).toList(),
                       ),

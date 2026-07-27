@@ -27,9 +27,7 @@ class SyneState extends State<Syne> {
   }
 
   void checkServers() async {
-
     final servers = await storage.getServers();
-
     setState(() {
       hasServers = servers.isNotEmpty;
       loading = false;

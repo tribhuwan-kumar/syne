@@ -1,12 +1,11 @@
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-
 import 'home_page.dart';
 import 'login_page.dart';
 import 'app_dialog.dart';
 
+import 'package:flutter/material.dart';
 import 'package:syne/types/server.dart';
 import 'package:syne/service/ssh_service.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:syne/service/server_storage.dart';
 
 class ServerListPage extends StatefulWidget {
@@ -51,7 +50,7 @@ class _ServerListPageState extends State<ServerListPage> {
 
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => HomePage(ssh: ssh)),
+        MaterialPageRoute(builder: (_) => HomePage(ssh: ssh, server: server)),
       );
     } catch (e) {
       await ssh.disconnect();

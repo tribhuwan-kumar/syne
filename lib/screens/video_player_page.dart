@@ -88,11 +88,17 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
       setState(() {
         loading = false;
       });
-
+			if(!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Stream failed: $e")),
       );
     }
+  }
+
+  String _truncateMiddle(String text, {int maxLength = 35}) {
+    if (text.length <= maxLength) return text;
+    int half = (maxLength ~/ 2) - 2;
+    return "${text.substring(0, half)}...${text.substring(text.length - half)}";
   }
 
   Future<void> _initializePlayer() async {
@@ -135,7 +141,13 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        title: Text(widget.fileName),
+        title: Text(
+					_truncateMiddle(widget.fileName),
+          style: const TextStyle(
+						color: Colors.white,
+						fontSize: 16
+					),
+				),
         backgroundColor: Colors.black,
       ),
       body: Center(
