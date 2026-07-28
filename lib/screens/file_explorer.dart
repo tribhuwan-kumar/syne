@@ -1323,7 +1323,7 @@ class _FileExplorerState extends State<FileExplorer> {
           });
         },
       ),
-      title: const Text("File Explorer"),
+      title: const Text("File explorer"),
       backgroundColor: Colors.black,
       centerTitle: true,
       elevation: 0,

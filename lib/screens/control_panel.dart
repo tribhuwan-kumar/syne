@@ -353,7 +353,7 @@ class _ControlPanelState extends State<ControlPanel> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        title: const Text("Control Panel"),
+        title: const Text("Control panel"),
         backgroundColor: Colors.black,
         centerTitle: true,
         elevation: 0,
