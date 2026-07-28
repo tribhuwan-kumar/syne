@@ -45,7 +45,6 @@ app.*.map.json
 /android/app/release
 trash
 target
-IMPL.md
 apkdump
 **/android/key.properties
 *.jks*
